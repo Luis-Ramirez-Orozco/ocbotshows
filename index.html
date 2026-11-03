@@ -1,0 +1,610 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Elevate Your Experience</title>
+<style>
+  :root {
+    --bg: #ebe9e5;
+    --fg: #17171a;
+    --muted: #77757a;
+    --accent: #ff5a3c;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    background: var(--bg); color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+    user-select: none; -webkit-user-select: none;
+  }
+
+  header {
+    position: absolute; top: 0; left: 0; right: 0; z-index: 50; pointer-events: none;
+    padding: 22px 32px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+  }
+  /* Brand title uses the LA Bot Shows site's type: Arial Narrow/Impact stack, bold, 1.5rem, .02em tracking, near-black #101010 */
+  header .brand {
+    font-family: "Arial Narrow", Impact, "Helvetica Neue", Arial, sans-serif; font-weight: 700;
+    font-size: 1.5rem; letter-spacing: .02em; color: #101010; text-transform: uppercase;
+  }
+  header h1 { font-size: 13px; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; }
+  header #counter { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; justify-self: end; }
+
+  /* The shelf: full-bleed so the cards run edge to edge */
+  .stage {
+    position: absolute; inset: 56px 0 0 0; perspective: 2400px; perspective-origin: 50% 50%;
+    overflow: hidden; cursor: grab; touch-action: pan-y;
+  }
+  .stage.dragging { cursor: grabbing; }
+
+  /* Each cover is a thin 3D slab: front, back, and two edges (thickness --t).
+     --eb / --ef are the edge background and text colors, set per site. */
+  .world { position: absolute; inset: 0; transform-style: preserve-3d; }
+  .cover {
+    position: absolute; left: 50%; top: 47%;
+    transform-style: preserve-3d; will-change: transform;
+  }
+  .cover .front, .cover .back, .cover .side { position: absolute; backface-visibility: hidden; }
+  .cover .front {
+    inset: 0; overflow: hidden; background: var(--eb); border-radius: var(--r);
+    transform: translateZ(calc(var(--t) / 2));
+  }
+  .cover .back { inset: 0; background: var(--eb); border-radius: var(--r); transform: rotateY(180deg) translateZ(calc(var(--t) / 2)); }
+  .cover .side {
+    top: var(--r); bottom: var(--r); width: calc(var(--t) + 1px);   /* +1px: overlap the faces so no hairline seam shows */ background: var(--eb); color: var(--ef);
+    backface-visibility: visible;
+    display: flex; align-items: center; justify-content: center;
+  }
+  /* Short strips that wrap each rounded corner, so the edge meets the cover all the way round */
+  .cover .corner { position: absolute; background: var(--eb); }
+  .cover .side.l { left: calc((var(--t) + 1px) / -2); transform: rotateY(-90deg); }
+  .cover .side.r { right: calc((var(--t) + 1px) / -2); transform: rotateY(90deg); }
+  /* Title on the edge, like a book spine */
+  .cover .side span {
+    writing-mode: vertical-rl; white-space: nowrap; font-weight: 700; letter-spacing: .1em;
+    text-transform: uppercase; font-size: calc(var(--t) * .58);
+  }
+  .cover .front .media { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; background: var(--eb); }
+  .cover .fallback {
+    position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center;
+    color: #fff; font-size: 28px; font-weight: 700; letter-spacing: -.02em;
+    background: linear-gradient(160deg, #2b2f4a, #6b3f5c);
+  }
+  /* Darkens cards the further they are from center */
+  .cover .shade { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; }
+
+  /* A recreated homepage is laid out 1280px wide (its height follows the card shape) and scaled to fit the card */
+  .page { position: absolute; top: 0; left: 0; width: 1280px; height: var(--ph, 1600px); transform-origin: 0 0; transform: scale(var(--s, .4)); pointer-events: none; overflow: hidden; }
+
+  /* ── Recreation: example ── (replace with your own; see references/example-recreations.js) */
+  .ex { background: #111; color: #fff; font-family: system-ui, sans-serif; display: grid; place-items: center; text-align: center; }
+  .ex h1 { font-size: 110px; margin: 0 0 20px; letter-spacing: -.03em; }
+  .ex p { font-size: 40px; margin: 0; opacity: .7; }
+
+  /* End-of-row panels: shown in the empty space when you scroll all the way to either end */
+  .end {
+    position: absolute; top: 56px; bottom: 110px; width: min(46vw, 640px); z-index: 10; pointer-events: none;
+    display: flex; flex-direction: column; justify-content: center; opacity: 0; visibility: hidden;
+    font-family: "Arial Narrow", Impact, "Helvetica Neue", Arial, sans-serif; color: #101010;
+  }
+  .end-left { left: clamp(24px, 4vw, 64px); }
+  .end-right { right: clamp(24px, 4vw, 64px); text-align: right; align-items: flex-end; }
+  .end .eyebrow { font-size: 14px; font-weight: 700; letter-spacing: .22em; text-transform: uppercase; color: var(--accent); margin-bottom: 16px; }
+  .end h2 { font-size: clamp(2.6rem, 6.4vw, 6.5rem); font-weight: 700; text-transform: uppercase; line-height: .95; letter-spacing: .01em; }
+  .end h2 em { font-style: normal; color: var(--accent); }
+  .end .lead { margin-top: 22px; max-width: 34ch; font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif; font-size: clamp(15px, 1.4vw, 19px); line-height: 1.5; color: #3a3a3f; }
+  @media (max-width: 700px) { .end { width: 86vw; } .end h2 { font-size: 2.4rem; } }
+
+  /* Floating info bar for the focused site */
+  .bar {
+    position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 50;
+    display: flex; align-items: center; gap: 18px; padding: 8px 8px 8px 20px; max-width: calc(100vw - 32px);
+    background: rgba(255,255,255,.72); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border-radius: 999px; box-shadow: 0 6px 24px rgba(0,0,0,.12);
+    transition: opacity .2s;
+  }
+  .bar.swap { opacity: .3; }
+  .bar .meta { min-width: 0; }
+  .bar h2 { font-size: 15px; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar p { font-size: 13px; color: var(--fg); white-space: normal; max-width: 44ch; min-height: 2.7em; line-height: 1.35; display: flex; align-items: center; }
+  .bar a {
+    flex: none; display: inline-flex; align-items: center; justify-content: center; min-height: 52px; padding: 0 30px;
+    border-radius: 999px; background: var(--accent); color: #fff;
+    text-decoration: none; font-weight: 700; font-size: 16px; letter-spacing: .01em;
+  }
+  .bar a:hover { filter: brightness(1.08); }
+  #sound {
+    flex: none; width: 40px; height: 40px; border-radius: 50%; border: 1px solid rgba(0,0,0,.18); background: transparent;
+    color: var(--fg); cursor: pointer; display: grid; place-items: center; padding: 0;
+  }
+  #sound:hover { background: rgba(0,0,0,.06); }
+  #sound.on { background: var(--fg); color: #fff; }
+  #sound svg { width: 20px; height: 20px; }
+  .bar .consult {
+    flex: none; padding: 10px 18px; border-radius: 999px; border: 1px solid rgba(0,0,0,.18); background: transparent;
+    color: var(--fg); font: inherit; font-weight: 600; font-size: 13px; cursor: pointer;
+  }
+  .bar .consult:hover { background: rgba(0,0,0,.06); }
+</style>
+<link rel="stylesheet" href="assets/calendar.css">
+</head>
+<body>
+
+<header>
+  <span class="brand">OC Bot Shows</span>
+  <h1>Elevate Your Experience</h1>
+  <span id="counter"></span>
+</header>
+
+<main class="stage" id="stage" aria-label="Website carousel"></main>
+
+<aside class="end end-left" id="endLeft">
+  <p class="eyebrow">The Show</p>
+  <h2>45 minutes of <em>non-stop</em> energy.</h2>
+  <p class="lead">30 minutes of dancing, 15 minutes of photos. LED robots that perform, interact and make your guests the stars.</p>
+</aside>
+<aside class="end end-right" id="endRight">
+  <p class="eyebrow">About Us</p>
+  <h2>We bring the <em>wow</em> to your event.</h2>
+  <p class="lead">OC Bot Shows brings LED robot performers to parties, weddings and corporate events. Book a date and we'll handle the rest.</p>
+</aside>
+
+<section class="bar" id="bar">
+  <button type="button" id="sound" aria-label="Turn sound on" title="Sound"></button>
+  <div class="meta"><p>LED robot performers that dance, interact and light up your event.</p></div>
+  <a href="#" id="book-now-link">Inquire today</a>
+</section>
+
+
+<script src="assets/calendar.js"></script>
+
+<script>
+/* ──────────────────────────────────────────────
+   EDIT THIS LIST — one entry per card.
+   Each card shows ONE kind of cover (first match wins):
+     cover : a key of RECREATIONS below — a live, scaled-down copy of a homepage
+     video : "assets/clip.mp4" — muted looping video; plays only while the card is near the center
+     image : "assets/photo.jpg" — a picture or screenshot
+     (none) — the title on a gradient
+   For video/image you can also set:
+     fit      : "cover" (fill the card, crop the edges; default) or "contain" (show everything, with bars)
+     position : where to anchor the crop, as CSS object-position (e.g. "top" for page screenshots)
+     poster   : (video only) an image to show until the video loads
+   edge / edgeText : the solid color of the card's edge and the title printed on it.
+   ────────────────────────────────────────────── */
+const SITES = [
+  { title: "4D968CE4 E919 4CEE B43B 03461EC7D490", url: "assets/video/4D968CE4-E919-4CEE-B43B-03461EC7D490.mp4", video: "assets/video/4D968CE4-E919-4CEE-B43B-03461EC7D490.mp4", poster: "assets/poster/4D968CE4-E919-4CEE-B43B-03461EC7D490.jpg",
+    edge: "#181818", edgeText: "#f5f5f5", tags: "Video", description: "Give your guests a moment they'll talk about long after the party ends." },
+  { title: "8A2AC100 7095 48B0 B978 5747D18BD2F8", url: "assets/video/8A2AC100-7095-48B0-B978-5747D18BD2F8.mp4", video: "assets/video/8A2AC100-7095-48B0-B978-5747D18BD2F8.mp4", poster: "assets/poster/8A2AC100-7095-48B0-B978-5747D18BD2F8.jpg",
+    edge: "#181818", edgeText: "#f5f5f5", tags: "Video", description: "Watch a room full of strangers turn into a crowd that's cheering together." },
+  { title: "Img 0019", url: "assets/img/IMG_0019.jpg", image: "assets/img/IMG_0019.jpg", fit: "contain",
+    edge: "#595a54", edgeText: "#f5f5f5", tags: "Photo", description: "Your guests, glowing robots and the photos you'll keep forever." },
+  { title: "B8912D52 BAEF 49B2 9618 E8B45B779DFA", url: "assets/video/B8912D52-BAEF-49B2-9618-E8B45B779DFA.mp4", video: "assets/video/B8912D52-BAEF-49B2-9618-E8B45B779DFA.mp4", poster: "assets/poster/B8912D52-BAEF-49B2-9618-E8B45B779DFA.jpg",
+    edge: "#181818", edgeText: "#f5f5f5", tags: "Video", description: "An LED robot makes your event instantly feel bigger, brighter and more special." },
+  { title: "IMG_0052", url: "assets/video/IMG_0052.mp4", video: "assets/video/IMG_0052.mp4", poster: "assets/poster/IMG_0052.jpg",
+    edge: "#181818", edgeText: "#f5f5f5", tags: "Video", description: "Kids and adults alike light up the second the robots walk in." },
+  { title: "Img 0025", url: "assets/img/IMG_0025.jpg", image: "assets/img/IMG_0025.jpg", fit: "contain",
+    edge: "#66136c", edgeText: "#f5f5f5", tags: "Photo", description: "See the excitement a robot visit brings to your event." },
+  { title: "IMG_0055", url: "assets/video/IMG_0055.mp4", video: "assets/video/IMG_0055.mp4", poster: "assets/poster/IMG_0055.jpg",
+    edge: "#181818", edgeText: "#f5f5f5", tags: "Video", description: "Create the photo everyone will want to post: you, your guests and a glowing robot." },
+  { title: "IMG_1360", url: "assets/video/IMG_1360.mp4", video: "assets/video/IMG_1360.mp4", poster: "assets/poster/IMG_1360.jpg",
+    edge: "#181818", edgeText: "#f5f5f5", tags: "Video", description: "A show that gets even the shy guests on their feet and smiling." },
+  { title: "Img 0079", url: "assets/img/IMG_0079.jpg", image: "assets/img/IMG_0079.jpg", fit: "contain",
+    edge: "#45317e", edgeText: "#f5f5f5", tags: "Photo", description: "Moments like this are what make a party unforgettable." },
+  { title: "IMG_3835", url: "assets/video/IMG_3835.mp4", video: "assets/video/IMG_3835.mp4", poster: "assets/poster/IMG_3835.jpg",
+    edge: "#181818", edgeText: "#f5f5f5", tags: "Video", description: "Turn a regular celebration into a night people ask you about for years." },
+  { title: "IMG_3836", url: "assets/video/IMG_3836.mp4", video: "assets/video/IMG_3836.mp4", poster: "assets/poster/IMG_3836.jpg",
+    edge: "#181818", edgeText: "#f5f5f5", tags: "Video", description: "Interactive by design: the robots high-five, pose and play with your guests." },
+  { title: "Img 0239", url: "assets/img/IMG_0239.jpg", image: "assets/img/IMG_0239.jpg",
+    edge: "#49555f", edgeText: "#f5f5f5", tags: "Photo", description: "Great photos come easy when the robots are part of the party." },
+  { title: "IMG_3837", url: "assets/video/IMG_3837.mp4", video: "assets/video/IMG_3837.mp4", poster: "assets/poster/IMG_3837.jpg",
+    edge: "#181818", edgeText: "#f5f5f5", tags: "Video", description: "Fill the dance floor with energy, from the first beat to the last." },
+  { title: "IMG_3842", url: "assets/video/IMG_3842.mp4", video: "assets/video/IMG_3842.mp4", poster: "assets/poster/IMG_3842.jpg",
+    edge: "#181818", edgeText: "#f5f5f5", tags: "Video", description: "Wow your crowd with a performance they can't see anywhere else." },
+  { title: "Img 1746", url: "assets/img/IMG_1746.jpg", image: "assets/img/IMG_1746.jpg", fit: "contain",
+    edge: "#4e4a3c", edgeText: "#f5f5f5", tags: "Photo", description: "A look at the energy LED robots bring to every celebration." },
+  { title: "IMG_3918", url: "assets/video/IMG_3918.mp4", video: "assets/video/IMG_3918.mp4", poster: "assets/poster/IMG_3918.jpg",
+    edge: "#181818", edgeText: "#f5f5f5", tags: "Video", description: "Give every age group something to enjoy, from toddlers to grandparents." },
+  { title: "IMG_3923", url: "assets/video/IMG_3923.mp4", video: "assets/video/IMG_3923.mp4", poster: "assets/poster/IMG_3923.jpg",
+    edge: "#181818", edgeText: "#f5f5f5", tags: "Video", description: "Take the pressure off hosting: the robots keep the entertainment going." },
+  { title: "Img 3250", url: "assets/img/IMG_3250.jpg", image: "assets/img/IMG_3250.jpg", fit: "contain",
+    edge: "#494a98", edgeText: "#f5f5f5", tags: "Photo", description: "Smiles all around: that's the robot effect." },
+  { title: "IMG_3929", url: "assets/video/IMG_3929.mp4", video: "assets/video/IMG_3929.mp4", poster: "assets/poster/IMG_3929.jpg",
+    edge: "#181818", edgeText: "#f5f5f5", tags: "Video", description: "Bring the wow factor to birthdays, quinceañeras, weddings and more." },
+  { title: "IMG_3933", url: "assets/video/IMG_3933.mp4", video: "assets/video/IMG_3933.mp4", poster: "assets/poster/IMG_3933.jpg",
+    edge: "#181818", edgeText: "#f5f5f5", tags: "Video", description: "Real reactions, real laughter: this is what a memorable entry looks like." },
+  { title: "Img 3881", url: "assets/img/IMG_3881.jpg", image: "assets/img/IMG_3881.jpg",
+    edge: "#18087f", edgeText: "#f5f5f5", tags: "Photo", description: "Add-on: more fun for your guests. Make your show your own." },
+  { title: "IMG_3935", url: "assets/video/IMG_3935.mp4", video: "assets/video/IMG_3935.mp4", poster: "assets/poster/IMG_3935.jpg",
+    edge: "#181818", edgeText: "#f5f5f5", tags: "Video", description: "Make your guest of honor feel like the star of the night." },
+  { title: "IMG_3949", url: "assets/video/IMG_3949.mp4", video: "assets/video/IMG_3949.mp4", poster: "assets/poster/IMG_3949.jpg",
+    edge: "#181818", edgeText: "#f5f5f5", tags: "Video", description: "Light, motion and music that turn your venue into the place to be." },
+  { title: "Img 3896", url: "assets/img/IMG_3896.jpg", image: "assets/img/IMG_3896.jpg",
+    edge: "#7d1f2a", edgeText: "#f5f5f5", tags: "Photo", description: "Boost the party with extras that make the night even bigger." },
+  { title: "IMG_3988", url: "assets/video/IMG_3988.mp4", video: "assets/video/IMG_3988.mp4", poster: "assets/poster/IMG_3988.jpg",
+    edge: "#181818", edgeText: "#f5f5f5", tags: "Video", description: "A grand entrance your guests will remember for years." },
+  { title: "IMG_3990", url: "assets/video/IMG_3990.mp4", video: "assets/video/IMG_3990.mp4", poster: "assets/poster/IMG_3990.jpg",
+    edge: "#181818", edgeText: "#f5f5f5", tags: "Video", description: "Spark conversation and connection between guests who've never met." },
+  { title: "Img 3957", url: "assets/img/IMG_3957.jpg", image: "assets/img/IMG_3957.jpg",
+    edge: "#7c0c6e", edgeText: "#f5f5f5", tags: "Photo", description: "Fun details that take your event from great to unforgettable." },
+  { title: "IMG_4024", url: "assets/video/IMG_4024.mp4", video: "assets/video/IMG_4024.mp4", poster: "assets/poster/IMG_4024.jpg",
+    edge: "#181818", edgeText: "#f5f5f5", tags: "Video", description: "Give your event a signature moment that sets it apart from the rest." },
+  { title: "IMG_4057", url: "assets/video/IMG_4057.mp4", video: "assets/video/IMG_4057.mp4", poster: "assets/poster/IMG_4057.jpg",
+    edge: "#181818", edgeText: "#f5f5f5", tags: "Video", description: "Even the toughest crowd can't help but join in." },
+  { title: "Img 4006", url: "assets/img/IMG_4006.jpg", image: "assets/img/IMG_4006.jpg",
+    edge: "#6e486a", edgeText: "#f5f5f5", tags: "Photo", description: "Bring the wow: show-stopping extras for your celebration." },
+  { title: "IMG_4058", url: "assets/video/IMG_4058.mp4", video: "assets/video/IMG_4058.mp4", poster: "assets/poster/IMG_4058.jpg",
+    edge: "#181818", edgeText: "#f5f5f5", tags: "Video", description: "Watch the whole party gather around for something truly different." },
+  { title: "IMG_4067", url: "assets/video/IMG_4067.mp4", video: "assets/video/IMG_4067.mp4", poster: "assets/poster/IMG_4067.jpg",
+    edge: "#181818", edgeText: "#f5f5f5", tags: "Video", description: "Create shared memories your family will replay again and again." },
+  { title: "Img 4012", url: "assets/img/IMG_4012.jpg", image: "assets/img/IMG_4012.jpg",
+    edge: "#854e54", edgeText: "#f5f5f5", tags: "Photo", description: "Capture memories with the whole crew, robots included." },
+  { title: "IMG_4074", url: "assets/video/IMG_4074.mp4", video: "assets/video/IMG_4074.mp4", poster: "assets/poster/IMG_4074.jpg",
+    edge: "#181818", edgeText: "#f5f5f5", tags: "Video", description: "Perfect for corporate events: give your team a night they'll enjoy together." },
+  { title: "IMG_4158", url: "assets/video/IMG_4158.mp4", video: "assets/video/IMG_4158.mp4", poster: "assets/poster/IMG_4158.jpg",
+    edge: "#181818", edgeText: "#f5f5f5", tags: "Video", description: "Bring a futuristic show to your stage and keep every eye on the action." },
+  { title: "Img 4017", url: "assets/img/IMG_4017.jpg", image: "assets/img/IMG_4017.jpg",
+    edge: "#614a65", edgeText: "#f5f5f5", tags: "Photo", description: "The look of pure delight: this is why guests love LED robots." },
+  { title: "IMG_4159", url: "assets/video/IMG_4159.mp4", video: "assets/video/IMG_4159.mp4", poster: "assets/poster/IMG_4159.jpg",
+    edge: "#181818", edgeText: "#f5f5f5", tags: "Video", description: "A dance break your guests will never forget, led by glowing LED robots." },
+  { title: "IMG_4166", url: "assets/video/IMG_4166.mp4", video: "assets/video/IMG_4166.mp4", poster: "assets/poster/IMG_4166.jpg",
+    edge: "#181818", edgeText: "#f5f5f5", tags: "Video", description: "Add a touch of sci-fi magic to your celebration." },
+  { title: "Img 4080", url: "assets/img/IMG_4080.jpg", image: "assets/img/IMG_4080.jpg",
+    edge: "#604488", edgeText: "#f5f5f5", tags: "Photo", description: "Dress up the dance floor with a show that stands out." },
+  { title: "IMG_4173", url: "assets/video/IMG_4173.mp4", video: "assets/video/IMG_4173.mp4", poster: "assets/poster/IMG_4173.jpg",
+    edge: "#181818", edgeText: "#f5f5f5", tags: "Video", description: "Get guests off their phones and into the moment, laughing together." },
+  { title: "IMG_4175", url: "assets/video/IMG_4175.mp4", video: "assets/video/IMG_4175.mp4", poster: "assets/poster/IMG_4175.jpg",
+    edge: "#181818", edgeText: "#f5f5f5", tags: "Video", description: "From the first wave to the last photo, 45 minutes of non-stop fun." },
+  { title: "Img 4081", url: "assets/img/IMG_4081.jpg", image: "assets/img/IMG_4081.jpg",
+    edge: "#72383e", edgeText: "#f5f5f5", tags: "Photo", description: "Every event deserves a moment guests can't stop talking about." },
+  { title: "IMG_7364", url: "assets/video/IMG_7364.mp4", video: "assets/video/IMG_7364.mp4", poster: "assets/poster/IMG_7364.jpg",
+    edge: "#181818", edgeText: "#f5f5f5", tags: "Video", description: "Make your event the one everyone is talking about on Monday." },
+  { title: "IMG_7365", url: "assets/video/IMG_7365.mp4", video: "assets/video/IMG_7365.mp4", poster: "assets/poster/IMG_7365.jpg",
+    edge: "#181818", edgeText: "#f5f5f5", tags: "Video", description: "Turn the dance floor into the centerpiece of your party." },
+  { title: "Img 4083", url: "assets/img/IMG_4083.jpg", image: "assets/img/IMG_4083.jpg",
+    edge: "#574d67", edgeText: "#f5f5f5", tags: "Photo", description: "Pose, laugh, repeat: a photo moment guests love." },
+  { title: "IMG_7907", url: "assets/video/IMG_7907.mp4", video: "assets/video/IMG_7907.mp4", poster: "assets/poster/IMG_7907.jpg",
+    edge: "#181818", edgeText: "#f5f5f5", tags: "Video", description: "A crowd favorite: the robots bring the energy so you can enjoy the party." },
+  { title: "IMG_7908", url: "assets/video/IMG_7908.mp4", video: "assets/video/IMG_7908.mp4", poster: "assets/poster/IMG_7908.jpg",
+    edge: "#181818", edgeText: "#f5f5f5", tags: "Video", description: "Capture the smiles, the surprise and the joy on every face." },
+  { title: "Img 4084", url: "assets/img/IMG_4084.jpg", image: "assets/img/IMG_4084.jpg",
+    edge: "#6a3c4b", edgeText: "#f5f5f5", tags: "Photo", description: "Turn your venue into a scene straight out of the future." },
+  { title: "IMG_7909", url: "assets/video/IMG_7909.mp4", video: "assets/video/IMG_7909.mp4", poster: "assets/poster/IMG_7909.jpg",
+    edge: "#181818", edgeText: "#f5f5f5", tags: "Video", description: "Bring friends and family together around one unforgettable show." },
+  { title: "IMG_7916", url: "assets/video/IMG_7916.mp4", video: "assets/video/IMG_7916.mp4", poster: "assets/poster/IMG_7916.jpg",
+    edge: "#181818", edgeText: "#f5f5f5", tags: "Video", description: "Add excitement to school events, fundraisers and community nights." },
+  { title: "Resized 20240720 223955 1721599679144", url: "assets/img/Resized_20240720_223955_1721599679144.jpg", image: "assets/img/Resized_20240720_223955_1721599679144.jpg",
+    edge: "#4e4848", edgeText: "#f5f5f5", tags: "Photo", description: "Glow-up for your celebration, courtesy of the robots." },
+  { title: "IMG_8820", url: "assets/video/IMG_8820.mp4", video: "assets/video/IMG_8820.mp4", poster: "assets/poster/IMG_8820.jpg",
+    edge: "#181818", edgeText: "#f5f5f5", tags: "Video", description: "Impress your guests without lifting a finger. We handle the show." },
+  { title: "IMG_8845", url: "assets/video/IMG_8845.mp4", video: "assets/video/IMG_8845.mp4", poster: "assets/poster/IMG_8845.jpg",
+    edge: "#181818", edgeText: "#f5f5f5", tags: "Video", description: "Experience how an LED robot can turn any space into a stage." },
+  { title: "IMG_8856", url: "assets/video/IMG_8856.mp4", video: "assets/video/IMG_8856.mp4", poster: "assets/poster/IMG_8856.jpg",
+    edge: "#181818", edgeText: "#f5f5f5", tags: "Video", description: "Show your guests something they've never seen at a party before." },
+  { title: "IMG_8860", url: "assets/video/IMG_8860.mp4", video: "assets/video/IMG_8860.mp4", poster: "assets/poster/IMG_8860.jpg",
+    edge: "#181818", edgeText: "#f5f5f5", tags: "Video", description: "Memories made here: big smiles, big laughs and great photos." },
+  { title: "flip it", url: "assets/video/flip-it.mp4", video: "assets/video/flip-it.mp4", poster: "assets/poster/flip-it.jpg",
+    edge: "#181818", edgeText: "#f5f5f5", tags: "Video", description: "A show built to create moments, not just entertainment." },
+];
+
+/* Tunables */
+/* Card size. Everything else (spacing, thickness, corner radius) scales with the card width. */
+const ASPECT = 9 / 16;        // card shape, width / height: 0.8 = 4:5 portrait, 1 = square, 9/16 = phone video, 16/9 = landscape video
+const CARD_HEIGHT = 0.78;  // card height as a fraction of the carousel area's height (bigger = larger cards)
+const CARD_MAX_WIDTH = 0.78; // card width is also capped at this fraction of the window width
+const PITCH = 0.17;        // distance between neighbouring cards, fraction of card width
+const ANGLE_NEAR = 90;     // cards at the center are edge-on...
+const ANGLE_FAR = 48;      // ...and ease toward this many degrees from edge-on out at the sides
+const CENTER_GAP = 0.14;   // clear space at the center of the row, fraction of card width
+const OPEN_MS = 1000;       // time to open or close a card
+const OPEN_LIFT = 200;     // how far an opened card comes forward, in px
+const OPEN_GAP = 0.62;     // how far neighbours slide aside when a card is opened, fraction of card width
+const RADIUS = 0.024;       // corner rounding, fraction of card width
+const CORNER_STEPS = 5;    // segments used to wrap each rounded corner
+const THICKNESS = 0.035;    // card thickness, fraction of card width
+const EASE = 0.0085;       // per millisecond; frame-rate independent
+const DESIGN_W = 1280;     // recreations are laid out 1280px wide (height = 1280 / ASPECT) and scaled down
+const VIDEO_RANGE = 2.5;   // videos play while the card is within this many cards of the center
+
+/* Sound: videos start muted-off; the speaker button in the bar switches it for the opened video */
+let soundOn = false;
+
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ──────────────────────────────────────────────
+   RECREATIONS — small live copies of each homepage.
+   Each returns { html, init(root) } where init may return { tick(t, light) }.
+   `light` is the pointer position in design coordinates (1280 wide), or null.
+   ────────────────────────────────────────────── */
+const RECREATIONS = {
+  /* A static recreation: just markup. Add init(root) returning { tick(t, light) } for animation. */
+  example: () => ({
+    html: `<div class="page ex"><div><h1>Your Site</h1><p>A scaled-down copy of its homepage</p></div></div>`
+  }),
+};
+
+const stage = document.getElementById('stage');
+const bar = document.getElementById('bar');
+const counter = document.getElementById('counter');
+const last = SITES.length - 1;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+const START = 0;   // start all the way at the left (change to any index or index + .5)
+let target = START, pos = START, index = -1, W = 0, H = 0, raf = 0, lastT = 0;
+let wantOpen = -1, openIdx = -1, open = 0, openT = 0, visible = 9;   // opened card index, how far it has swung open (0-1), cards drawn per side
+let moved = false;
+
+const world = document.createElement('div'); world.className = 'world'; stage.appendChild(world);
+
+/* Build covers */
+const covers = SITES.map((s, i) => {
+  const el = document.createElement('div');
+  el.className = 'cover';
+  el.setAttribute('role', 'button');
+  el.setAttribute('aria-label', s.title);
+  el.style.display = 'none';
+  el.style.setProperty('--eb', s.edge || '#222');
+  el.style.setProperty('--ef', s.edgeText || '#fff');
+
+  const front = document.createElement('div'); front.className = 'front';
+  if (s.cover && RECREATIONS[s.cover]) {
+    const rec = RECREATIONS[s.cover]();
+    front.innerHTML = rec.html;
+    if (rec.init) el._live = rec.init(front.firstElementChild);
+  } else if (s.video) {
+    const v = document.createElement('video');
+    v.className = 'media'; v.muted = true; v.loop = true; v.playsInline = true; v.preload = 'none';   // no src until the card is opened: 40 videos never load at once
+    el._load = () => { if (s.poster) v.poster = s.poster; };   // poster loads only once the card is on screen
+    v.style.objectFit = s.fit || 'cover'; v.style.objectPosition = s.position || 'center';
+    front.appendChild(v);
+    el._video = v;
+  } else if (s.image) {
+    const img = new Image(); img.className = 'media'; img.alt = ''; img.draggable = false;
+    el._load = () => { img.src = s.image; img.decode().catch(() => {}); };   // loads only once the card is on screen
+    img.style.objectFit = s.fit || 'cover'; img.style.objectPosition = s.position || 'center';
+    front.appendChild(img);
+  } else {
+    const fb = document.createElement('div'); fb.className = 'fallback'; fb.textContent = s.title;
+    front.appendChild(fb);
+  }
+  const shade = document.createElement('div'); shade.className = 'shade';
+  front.appendChild(shade);
+
+  const back = document.createElement('div'); back.className = 'back';
+  const side = cls => { const d = document.createElement('div'); d.className = 'side ' + cls; return d; };
+  el._corners = [];
+  for (let k = 0; k < 4 * CORNER_STEPS; k++) { const c = document.createElement('div'); c.className = 'corner'; el._corners.push(c); }
+  el.append(front, back, side('l'), side('r'), ...el._corners);
+  el._front = front; el._shade = shade;
+
+  world.appendChild(el);
+  return el;
+});
+
+function measure() {
+  const h = stage.clientHeight * CARD_HEIGHT;
+  W = Math.min(h * ASPECT, stage.clientWidth * CARD_MAX_WIDTH);
+  H = W / ASPECT;
+  covers.forEach(el => {
+    el.style.width = W + 'px'; el.style.height = H + 'px';
+    el.style.marginLeft = -W / 2 + 'px'; el.style.marginTop = -H / 2 + 'px';
+    el.style.setProperty('--t', W * THICKNESS + 'px');
+    el.style.setProperty('--r', W * RADIUS + 'px');
+    el.style.setProperty('--s', W / DESIGN_W);
+    el.style.setProperty('--ph', DESIGN_W / ASPECT + 'px');
+
+    // Lay out the corner-wrapping segments along each quarter circle
+    const r = W * RADIUS, t = W * THICKNESS;
+    [[r, r, 180], [W - r, r, 270], [W - r, H - r, 0], [r, H - r, 90]].forEach(([cx, cy, a0], c) => {
+      for (let k = 0; k < CORNER_STEPS; k++) {
+        const a = (a0 + 90 * k / CORNER_STEPS) * Math.PI / 180, b = (a0 + 90 * (k + 1) / CORNER_STEPS) * Math.PI / 180;
+        // Vertices sit slightly outside the arc so each flat segment just touches it (instead of cutting inside it)
+        const ro = r / Math.cos(Math.PI / (4 * CORNER_STEPS));
+        const ax = cx + ro * Math.cos(a), ay = cy + ro * Math.sin(a), bx = cx + ro * Math.cos(b), by = cy + ro * Math.sin(b);
+        const L = Math.hypot(bx - ax, by - ay) + 1, mx = (ax + bx) / 2, my = (ay + by) / 2;
+        const seg = el._corners[c * CORNER_STEPS + k].style;
+        seg.width = L + 'px'; seg.height = t + 1 + 'px'; seg.left = mx - L / 2 + 'px'; seg.top = my - (t + 1) / 2 + 'px';
+        seg.transform = `rotateZ(${Math.atan2(by - ay, bx - ax)}rad) rotateX(90deg)`;
+      }
+    });
+  });
+  visible = Math.min(24, Math.ceil(stage.clientWidth / 2 / (W * PITCH)) + 1);
+}
+
+/* Cards sit in one tight row. Every card is turned nearly edge-on, a little less the farther
+   it is from center, so the row reads as a fan of spines. A card passes through the center
+   edge-on (thin), never swinging flat, so there is no big rotation as it goes by.
+   An opened card is the one exception: it hinges up to face you while its neighbours slide aside. */
+const ease = x => x * x * x * (x * (x * 6 - 15) + 10);   // smootherstep: gentle start and finish
+const angleAt = ad => ANGLE_NEAR - (ANGLE_NEAR - ANGLE_FAR) * (1 - Math.exp(-0.55 * ad));
+
+/* Opening is staged, like pulling a book off a shelf, and closing simply plays it backwards:
+   the card slides forward out of the row, its neighbours part to make room, and only then
+   does it turn to face you. So it never grows into its neighbours or appears from behind them. */
+const stageOf = (t, from, to) => ease(clamp((t - from) / (to - from), 0, 1));
+
+const endL = document.getElementById('endLeft'), endR = document.getElementById('endRight');
+function endPanels(p) {
+  const l = clamp(1 - p / 1.6, 0, 1), r = clamp(1 - (last - p) / 1.6, 0, 1);   // fade in over the last ~1.6 cards of travel
+  endL.style.opacity = l; endL.style.visibility = l > 0.01 ? 'visible' : 'hidden'; endL.style.transform = `translateX(${(1 - l) * -40}px)`;
+  endR.style.opacity = r; endR.style.visibility = r > 0.01 ? 'visible' : 'hidden'; endR.style.transform = `translateX(${(1 - r) * 40}px)`;
+}
+
+function layout(p) {
+  endPanels(p);
+  const lift = stageOf(openT, 0, 0.45), spread = stageOf(openT, 0.1, 0.65), turn = stageOf(openT, 0.3, 1);
+  covers.forEach((el, i) => {
+    const d = i - p, ad = Math.abs(d);
+    if (ad > visible) { if (el.style.display !== 'none') el.style.display = 'none'; return; }
+    if (el.style.display === 'none') { el.style.display = ''; if (el._load) { el._load(); el._load = null; } }
+
+    const isOpen = i === openIdx && openT > 0.001;
+    const near = Math.min(ad, 1), gap = near * near * (3 - 2 * near);   // smoothstep: the gap opens as a card nears center
+    let x = d * W * PITCH + Math.sign(d) * gap * W * CENTER_GAP;
+    let rot = (d < 0 ? 1 : -1) * angleAt(ad);        // left cards lean one way, right cards the other
+    let z = 0;
+    if (isOpen) {
+      // Blend the lean direction smoothly through center so scrolling either way is continuous
+      // Lean direction: a hard left/right choice while still edge-on (so it stays edge-on at the center),
+      // blending to a smooth one as it opens so scrolling either way stays continuous
+      const lean = -(turn * clamp(d / (0.0001 + turn * 0.6), -1, 1) + (1 - turn) * (d < 0 ? -1 : 1));
+      rot = lean * angleAt(ad) * (1 - turn); z = lift * OPEN_LIFT;
+    }
+    else if (openT > 0.001 && openIdx >= 0) x += Math.sign(i - openIdx) * spread * W * OPEN_GAP;
+
+    el.style.transform = `translate3d(${x}px,0,${z}px) rotateY(${rot}deg)`;
+    el._shade.style.opacity = isOpen ? 0 : Math.min(ad, 5) * 0.05;
+
+    // Videos play only while their card is opened (keeps scrolling smooth)
+    if (el._video) {
+      const v = el._video, want = isOpen && openT > 0.85;
+      if (want && !el._playing) {
+        el._playing = true;
+        if (!v.getAttribute('src')) v.src = SITES[i].video;
+        v.muted = !soundOn;
+        v.play().catch(() => { v.muted = true; v.play().catch(() => {}); });
+      } else if (!want && el._playing) { el._playing = false; v.pause(); }
+      if (!isOpen && v.getAttribute('src')) { v.removeAttribute('src'); v.load(); }   // closed: release the video so memory stays low
+    }
+  });
+}
+
+function setBar(i) {
+  const bp = document.querySelector('#bar .meta p'); if (bp && SITES[i].description) bp.textContent = SITES[i].description;
+  counter.textContent = `${String(i + 1).padStart(2, '0')} / ${String(SITES.length).padStart(2, '0')}`;
+}
+
+/* Movement loop: eases `pos` toward `target`, only runs while moving */
+function frame(now) {
+  raf = 0;
+  const dt = Math.min(now - (lastT || now - 16), 48);
+  lastT = now;
+  pos += (target - pos) * (1 - Math.exp(-EASE * dt * 2.4));
+  if (Math.abs(target - pos) < 0.0008) pos = target;
+  // A card only swings open once it has arrived at the center
+  // The card being opened only changes once the previous one has fully closed, so closing always animates
+  if (openIdx !== wantOpen && openT === 0) openIdx = wantOpen;
+  const openGoal = openIdx === wantOpen && wantOpen >= 0 && Math.abs(pos - wantOpen) < 0.12 ? 1 : 0;
+  openT = clamp(openT + (openGoal ? dt : -dt) / OPEN_MS, 0, 1);
+  open = ease(openT);
+  layout(pos);
+  const i = clamp(Math.round(pos), 0, last);
+  if (i !== index) { index = i; setBar(i); }
+  if (pos !== target || openT !== openGoal || openIdx !== wantOpen) raf = requestAnimationFrame(frame); else lastT = 0;
+}
+function kick() { if (!raf) raf = requestAnimationFrame(frame); }
+function setTarget(v) { target = clamp(v, 0, last); kick(); }
+function close() { if (wantOpen >= 0) { wantOpen = -1; kick(); } }
+
+/* Animation loop for the recreated homepages: only covers near the center are updated.
+   The pointer drives the focused card's spotlight. */
+let pointer = null;   // {x, y} in design coordinates of the focused card, or null
+function updatePointer(e) {
+  const f = covers[index] && covers[index]._front;
+  if (!f) return;
+  const r = f.getBoundingClientRect();
+  const inside = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+  pointer = inside ? { x: (e.clientX - r.left) / r.width * DESIGN_W, y: (e.clientY - r.top) / r.height * DESIGN_W / ASPECT } : null;
+}
+stage.addEventListener('pointermove', updatePointer);
+stage.addEventListener('pointerleave', () => pointer = null);
+
+function liveLoop(now) {
+  const t = now / 1000;
+  covers.forEach((el, i) => {
+    if (el._live && Math.abs(pos - i) < 5) el._live.tick(t, i === openIdx && open > .5 ? pointer : null);
+  });
+  requestAnimationFrame(liveLoop);
+}
+
+/* Wheel / trackpad: free, continuous scrolling (no snapping) */
+stage.addEventListener('wheel', e => {
+  if (document.body.classList.contains('modal-open')) return;
+  e.preventDefault();
+  const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+  // A card was just picked: ignore the rest of that scroll gesture (trackpad momentum can trail on
+  // for over a second and would otherwise close the card or pull the carousel off it).
+  const now = performance.now(), gap = now - lastWheel;
+  lastWheel = now;
+  if (gap > 150) wheelLocked = false;                     // a pause means the old gesture is over
+  if (wheelLocked || now - lastActivate < 300 || Math.abs(delta) < 2) return;
+  close();
+  setTarget(target + delta * 0.006);
+}, { passive: false });
+
+/* Sound button */
+const soundBtn = document.getElementById('sound');
+const ICON_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="m16 9 5 6M21 9l-5 6"/></svg>';
+const ICON_ON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>';
+function paintSound() {
+  soundBtn.innerHTML = soundOn ? ICON_ON : ICON_OFF;
+  soundBtn.classList.toggle('on', soundOn);
+  soundBtn.setAttribute('aria-label', soundOn ? 'Turn sound off' : 'Turn sound on');
+}
+soundBtn.addEventListener('click', () => {
+  soundOn = !soundOn; paintSound();
+  covers.forEach(c => { if (c._video && c._playing) { c._video.muted = !soundOn; if (soundOn) c._video.play().catch(() => {}); } });
+});
+paintSound();
+
+/* While the booking calendar is open, the carousel ignores keys and scrolling */
+document.addEventListener('bookingchange', e => document.body.classList.toggle('modal-open', e.detail.open));
+
+addEventListener('keydown', e => {
+  if (document.body.classList.contains('modal-open')) return;   // the booking calendar is open
+  const k = e.key;
+  if (k !== 'Enter' && k !== ' ') close();
+  if (k === 'ArrowRight' || k === 'ArrowDown') setTarget(Math.round(target) + 1);
+  else if (k === 'ArrowLeft' || k === 'ArrowUp') setTarget(Math.round(target) - 1);
+  else if (k === 'Home') setTarget(0);
+  else if (k === 'End') setTarget(last);
+  else if (k === 'Escape') close();
+  else if (k === 'Enter' || k === ' ') {
+    e.preventDefault();
+    if (wantOpen === index && open > .9) close();
+    else { wantOpen = index; kick(); }
+  }
+});
+
+/* Selecting a card. Handled on pointer-up using the card that was pressed: cards keep moving
+   under the cursor, so a normal click event can land on a different element and be dropped. */
+function activate(i) {
+  lastActivate = performance.now();
+  wheelLocked = true;
+  if (wantOpen === i && open > .9) close();
+  else { wantOpen = i; setTarget(i); }
+}
+let lastActivate = 0, downIdx = -1, lastWheel = 0, wheelLocked = false;
+
+/* Drag / swipe */
+let dragging = false, startX = 0, startT = 0, lastX = 0, vel = 0;
+stage.addEventListener('pointerdown', e => {
+  const c = e.target.closest && e.target.closest('.cover');
+  downIdx = c ? covers.indexOf(c) : -1;
+  dragging = true; moved = false; startX = lastX = e.clientX; startT = target; vel = 0;
+  stage.classList.add('dragging');
+});
+addEventListener('pointermove', e => {
+  if (!dragging) return;
+  if (Math.abs(e.clientX - startX) > 8) moved = true;
+  if (!moved) return;
+  close();
+  vel = e.clientX - lastX; lastX = e.clientX;
+  target = clamp(startT - (e.clientX - startX) / (W * PITCH), 0, last);
+  pos = target;                      // track the pointer 1:1 while dragging
+  kick();
+});
+addEventListener('pointerup', () => {
+  if (!dragging) return;
+  dragging = false; stage.classList.remove('dragging');
+  if (moved) setTarget(target - clamp(vel, -60, 60) / (W * PITCH) * 7);   // let a flick glide
+  else if (downIdx >= 0) activate(downIdx);
+  setTimeout(() => moved = false, 0);
+});
+
+addEventListener('resize', () => { measure(); layout(pos); });
+measure(); kick(); requestAnimationFrame(liveLoop);
+</script>
+</body>
+</html>

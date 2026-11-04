@@ -131,9 +131,10 @@
   .bar .consult:hover { background: rgba(0,0,0,.06); }
   /* Phones: the bar is just the Inquire button (plus the small sound toggle); no description */
   @media (max-width: 700px) {
-    .bar { bottom: max(16px, env(safe-area-inset-bottom)); gap: 10px; padding: 8px 10px 8px 8px; width: max-content; }
+    /* full-width pill so the button always sits inside the white bubble */
+    .bar { left: 16px; right: 16px; transform: none; max-width: none; width: auto; bottom: max(16px, env(safe-area-inset-bottom)); gap: 10px; padding: 8px; }
     .bar .meta { display: none; }
-    .bar a { min-height: 54px; padding: 0 38px; font-size: 17px; }
+    .bar a { flex: 1; min-height: 54px; padding: 0 20px; font-size: 17px; }
   }
 
 </style>
@@ -392,10 +393,17 @@ const covers = SITES.map((s, i) => {
   return el;
 });
 
+/* Phones (<= 700px wide): smaller cards at rest, and the tapped card grows to fill most of the screen.
+   Desktop is untouched: openScale stays 1 and CARD_HEIGHT is used as before. */
+const phoneMQ = matchMedia('(max-width: 700px)');
+const PHONE_CARD_HEIGHT = 0.4;    // resting card height as a fraction of the stage height
+let openScale = 1;
 function measure() {
-  const h = stage.clientHeight * CARD_HEIGHT;
+  const phone = phoneMQ.matches;
+  const h = stage.clientHeight * (phone ? PHONE_CARD_HEIGHT : CARD_HEIGHT);
   W = Math.min(h * ASPECT, stage.clientWidth * CARD_MAX_WIDTH);
   H = W / ASPECT;
+  openScale = phone ? Math.max(1, Math.min(stage.clientWidth * 0.9 / W, stage.clientHeight * 0.74 / H)) : 1;
   covers.forEach(el => {
     el.style.width = W + 'px'; el.style.height = H + 'px';
     el.style.marginLeft = -W / 2 + 'px'; el.style.marginTop = -H / 2 + 'px';
@@ -461,9 +469,9 @@ function layout(p) {
       const lean = -(turn * clamp(d / (0.0001 + turn * 0.6), -1, 1) + (1 - turn) * (d < 0 ? -1 : 1));
       rot = lean * angleAt(ad) * (1 - turn); z = lift * OPEN_LIFT;
     }
-    else if (openT > 0.001 && openIdx >= 0) x += Math.sign(i - openIdx) * spread * W * OPEN_GAP;
+    else if (openT > 0.001 && openIdx >= 0) x += Math.sign(i - openIdx) * spread * W * (OPEN_GAP + (openScale - 1) * 0.5);
 
-    el.style.transform = `translate3d(${x}px,0,${z}px) rotateY(${rot}deg)`;
+    el.style.transform = `translate3d(${x}px,0,${z}px) rotateY(${rot}deg)` + (isOpen && openScale > 1 ? ` scale(${1 + (openScale - 1) * turn})` : '');
     el._shade.style.opacity = isOpen ? 0 : Math.min(ad, 5) * 0.05;
 
     // Videos play only while their card is opened (keeps scrolling smooth)

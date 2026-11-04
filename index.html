@@ -430,7 +430,7 @@ const covers = SITES.map((s, i) => {
 /* Phones (<= 700px wide): smaller cards at rest, and the tapped card grows to fill most of the screen.
    Desktop is untouched: openScale stays 1 and CARD_HEIGHT is used as before. */
 const phoneMQ = matchMedia('(max-width: 700px)');
-const PHONE_CARD_HEIGHT = 0.4;    // resting card height as a fraction of the stage height
+const PHONE_CARD_HEIGHT = CARD_HEIGHT;    // phones use the full desktop card size at rest
 let openScale = 1, pitch = PITCH, lo = 0, hi = last;   // lo/hi: scroll range; phones get one extra text slide at each end   // pitch: card spacing; doubled on phones
 function measure() {
   const phone = phoneMQ.matches;
@@ -440,7 +440,7 @@ function measure() {
   const h = stage.clientHeight * (phone ? PHONE_CARD_HEIGHT : CARD_HEIGHT);
   W = Math.min(h * ASPECT, stage.clientWidth * CARD_MAX_WIDTH);
   H = W / ASPECT;
-  openScale = phone ? Math.max(1, Math.min(stage.clientWidth * 0.9 / W, stage.clientHeight * 0.74 / H)) : 1;
+  openScale = phone ? Math.max(1, Math.min(stage.clientWidth * 0.9 / W, stage.clientHeight * 0.7 / H)) : 1;
   covers.forEach(el => {
     el.style.width = W + 'px'; el.style.height = H + 'px';
     el.style.marginLeft = -W / 2 + 'px'; el.style.marginTop = -H / 2 + 'px';
@@ -496,7 +496,11 @@ function endPanels(p) {
 
 function layout(p) {
   endPanels(p);
-  const lift = stageOf(openT, 0, 0.45), spread = stageOf(openT, 0.1, 0.65), turn = stageOf(openT, 0.3, 1);
+  // Phones: strictly staged so the card never turns while still level with its neighbours:
+  // lift forward (0-.3) -> neighbours part (.2-.6) -> turn flat and grow (.55-1). Desktop timing is unchanged.
+  const ph = phoneMQ.matches;
+  const lift = ph ? stageOf(openT, 0, 0.3) : stageOf(openT, 0, 0.45), spread = ph ? stageOf(openT, 0.2, 0.6) : stageOf(openT, 0.1, 0.65), turn = ph ? stageOf(openT, 0.55, 1) : stageOf(openT, 0.3, 1);
+  const liftPx = ph ? W * 0.9 : OPEN_LIFT;   // phone cards are small, so lift in proportion to the card
   covers.forEach((el, i) => {
     const d = i - p, ad = Math.abs(d);
     if (ad > visible) { if (el.style.display !== 'none') el.style.display = 'none'; return; }
@@ -512,11 +516,12 @@ function layout(p) {
       // Lean direction: a hard left/right choice while still edge-on (so it stays edge-on at the center),
       // blending to a smooth one as it opens so scrolling either way stays continuous
       const lean = -(turn * clamp(d / (0.0001 + turn * 0.6), -1, 1) + (1 - turn) * (d < 0 ? -1 : 1));
-      rot = lean * angleAt(ad) * (1 - turn); z = lift * OPEN_LIFT;
+      rot = lean * angleAt(ad) * (1 - turn); z = lift * liftPx;
     }
     else if (openT > 0.001 && openIdx >= 0) x += Math.sign(i - openIdx) * spread * W * (OPEN_GAP + (openScale - 1) * 0.5);
 
-    el.style.transform = `translate3d(${x}px,0,${z}px) rotateY(${rot}deg)` + (isOpen && openScale > 1 ? ` scale(${1 + (openScale - 1) * turn})` : '');
+    const y = isOpen && ph ? -turn * stage.clientHeight * 0.065 : 0;   // phones: sit the opened card between the header and the bar
+    el.style.transform = `translate3d(${x}px,${y}px,${z}px) rotateY(${rot}deg)` + (isOpen && openScale > 1 ? ` scale(${1 + (openScale - 1) * turn})` : '');
     el._shade.style.opacity = isOpen ? 0 : Math.min(ad, 5) * 0.05;
 
     // Videos play only while their card is opened (keeps scrolling smooth)

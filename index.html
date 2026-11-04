@@ -141,7 +141,7 @@
     header .brand { grid-column: 2; grid-row: 1; font-size: 1.35rem; white-space: nowrap; }
     header h1 { grid-column: 2; grid-row: 2; font-size: 10px; letter-spacing: .2em; white-space: nowrap; }
     header #counter { grid-column: 3; grid-row: 1 / span 2; align-self: center; justify-self: end; white-space: nowrap; }
-    .stage { top: 74px; }
+    .stage { top: 74px; bottom: 96px; }   /* cards are centered in the space between header and bar */
     /* End-of-row text: its own full slide past either end (no card), with a glass blinking arrow to scroll on */
     .end {
       top: 84px; bottom: 120px; left: 22px; right: 22px; width: auto; margin: 0;
@@ -430,17 +430,19 @@ const covers = SITES.map((s, i) => {
 /* Phones (<= 700px wide): smaller cards at rest, and the tapped card grows to fill most of the screen.
    Desktop is untouched: openScale stays 1 and CARD_HEIGHT is used as before. */
 const phoneMQ = matchMedia('(max-width: 700px)');
+const PHONE_PITCH = 0.5, PHONE_ANGLE_FAR = 62;   // wide spacing + more edge-on lean: neighbours no longer overlap, so no card appears to come out from behind another
 const PHONE_CARD_HEIGHT = CARD_HEIGHT;    // phones use the full desktop card size at rest
 let openScale = 1, pitch = PITCH, lo = 0, hi = last;   // lo/hi: scroll range; phones get one extra text slide at each end   // pitch: card spacing; doubled on phones
 function measure() {
   const phone = phoneMQ.matches;
-  pitch = phone ? PITCH * 2 : PITCH;
+  pitch = phone ? PHONE_PITCH : PITCH;
+  angleFar = phone ? PHONE_ANGLE_FAR : ANGLE_FAR;
   lo = phone ? -1 : 0; hi = phone ? last + 1 : last;
   target = clamp(target, lo, hi); pos = clamp(pos, lo, hi);
   const h = stage.clientHeight * (phone ? PHONE_CARD_HEIGHT : CARD_HEIGHT);
   W = Math.min(h * ASPECT, stage.clientWidth * CARD_MAX_WIDTH);
   H = W / ASPECT;
-  openScale = phone ? Math.max(1, Math.min(stage.clientWidth * 0.9 / W, stage.clientHeight * 0.7 / H)) : 1;
+  openScale = phone ? Math.max(1, Math.min(stage.clientWidth * 0.9 / W, stage.clientHeight * 0.92 / H)) : 1;
   covers.forEach(el => {
     el.style.width = W + 'px'; el.style.height = H + 'px';
     el.style.marginLeft = -W / 2 + 'px'; el.style.marginTop = -H / 2 + 'px';
@@ -472,7 +474,8 @@ function measure() {
    edge-on (thin), never swinging flat, so there is no big rotation as it goes by.
    An opened card is the one exception: it hinges up to face you while its neighbours slide aside. */
 const ease = x => x * x * x * (x * (x * 6 - 15) + 10);   // smootherstep: gentle start and finish
-const angleAt = ad => ANGLE_NEAR - (ANGLE_NEAR - ANGLE_FAR) * (1 - Math.exp(-0.55 * ad));
+let angleFar = ANGLE_FAR;   // phones turn cards more edge-on so neighbours don't overlap
+const angleAt = ad => ANGLE_NEAR - (ANGLE_NEAR - angleFar) * (1 - Math.exp(-0.55 * ad));
 
 /* Opening is staged, like pulling a book off a shelf, and closing simply plays it backwards:
    the card slides forward out of the row, its neighbours part to make room, and only then
@@ -520,7 +523,7 @@ function layout(p) {
     }
     else if (openT > 0.001 && openIdx >= 0) x += Math.sign(i - openIdx) * spread * W * (OPEN_GAP + (openScale - 1) * 0.5);
 
-    const y = isOpen && ph ? -turn * stage.clientHeight * 0.065 : 0;   // phones: sit the opened card between the header and the bar
+    const y = 0;
     el.style.transform = `translate3d(${x}px,${y}px,${z}px) rotateY(${rot}deg)` + (isOpen && openScale > 1 ? ` scale(${1 + (openScale - 1) * turn})` : '');
     el._shade.style.opacity = isOpen ? 0 : Math.min(ad, 5) * 0.05;
 

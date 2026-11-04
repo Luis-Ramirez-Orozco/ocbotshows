@@ -99,6 +99,8 @@
   .end .lead { margin-top: 22px; max-width: 34ch; font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif; font-size: clamp(15px, 1.4vw, 19px); line-height: 1.5; color: #3a3a3f; }
   @media (max-width: 700px) { .end { width: 86vw; } .end h2 { font-size: 2.4rem; } }
 
+  .end .cue { display: none; }
+
   /* Floating info bar for the focused site */
   .bar {
     position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 50;
@@ -140,12 +142,30 @@
     header h1 { grid-column: 2; grid-row: 2; font-size: 10px; letter-spacing: .2em; white-space: nowrap; }
     header #counter { grid-column: 3; grid-row: 1 / span 2; align-self: center; justify-self: end; white-space: nowrap; }
     .stage { top: 74px; }
-    /* End-of-row text: sits in the clear space under the header, above the cards */
-    .end { top: 84px; bottom: auto; width: auto; left: 18px; right: 18px; justify-content: flex-start; }
-    .end-right { text-align: right; align-items: flex-end; }
-    .end .eyebrow { font-size: 12px; margin-bottom: 8px; }
-    .end h2 { font-size: 2.1rem; }
-    .end .lead { font-size: 14px; margin-top: 12px; max-width: 32ch; }
+    /* End-of-row text: its own full slide past either end (no card), with a glass blinking arrow to scroll on */
+    .end {
+      top: 84px; bottom: 120px; left: 22px; right: 22px; width: auto; margin: 0;
+      justify-content: center; align-items: center; text-align: center; transform: none !important;
+    }
+    .end-right { text-align: center; align-items: center; }
+    .end .eyebrow { font-size: 13px; margin-bottom: 12px; }
+    .end h2 { font-size: 2.8rem; }
+    .end .lead { font-size: 16px; margin-top: 18px; max-width: 30ch; }
+    .end .cue {
+      display: grid; place-items: center; position: fixed; bottom: 116px; left: 50%; margin-left: -28px; width: 56px; height: 56px;
+      border-radius: 50%; padding: 0; color: #101010; cursor: pointer; pointer-events: auto;
+      background: rgba(255,255,255,.38); border: 1px solid rgba(255,255,255,.85);
+      -webkit-backdrop-filter: blur(14px) saturate(1.6); backdrop-filter: blur(14px) saturate(1.6);
+      box-shadow: 0 8px 26px rgba(16,16,16,.16), inset 0 1px 0 rgba(255,255,255,.9), 0 0 0 1px rgba(16,16,16,.08);
+      animation: cueBlink 1.5s ease-in-out infinite;
+    }
+    .end .cue svg { width: 26px; height: 26px; }
+    .end .cue-right { --nudge: 7px; }
+    .end .cue-left { --nudge: -7px; }
+    @keyframes cueBlink {
+      0%, 100% { opacity: .3; transform: translateX(0); }
+      50% { opacity: 1; transform: translateX(var(--nudge)); }
+    }
     .bar a { flex: 1; min-height: 54px; padding: 0 20px; font-size: 17px; }
   }
 
@@ -166,11 +186,13 @@
   <p class="eyebrow">The Show</p>
   <h2>45 minutes of <em>non&#8209;stop</em> energy.</h2>
   <p class="lead">30 minutes of dancing, 15 minutes of photos. LED robots that perform, interact and make your guests the stars.</p>
+  <button type="button" class="cue cue-right" id="cueRight" aria-label="Scroll to the shows"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 5 7 7-7 7"/></svg></button>
 </aside>
 <aside class="end end-right" id="endRight">
   <p class="eyebrow">About Us</p>
   <h2>We bring the <em>wow</em> to your event.</h2>
   <p class="lead">OC Bot Shows brings LED robot performers to parties, weddings and corporate events. Book a date and we'll handle the rest.</p>
+  <button type="button" class="cue cue-left" id="cueLeft" aria-label="Scroll back to the shows"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg></button>
 </aside>
 
 <section class="bar" id="bar">
@@ -353,7 +375,7 @@ const counter = document.getElementById('counter');
 const last = SITES.length - 1;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
-const START = 0;   // start all the way at the left (change to any index or index + .5)
+const START = matchMedia('(max-width: 700px)').matches ? -1 : 0;   // desktop starts on card 1; phones start on the intro text slide (-1)
 let target = START, pos = START, index = -1, W = 0, H = 0, raf = 0, lastT = 0;
 let wantOpen = -1, openIdx = -1, open = 0, openT = 0, visible = 9;   // opened card index, how far it has swung open (0-1), cards drawn per side
 let moved = false;
@@ -409,9 +431,12 @@ const covers = SITES.map((s, i) => {
    Desktop is untouched: openScale stays 1 and CARD_HEIGHT is used as before. */
 const phoneMQ = matchMedia('(max-width: 700px)');
 const PHONE_CARD_HEIGHT = 0.4;    // resting card height as a fraction of the stage height
-let openScale = 1;
+let openScale = 1, pitch = PITCH, lo = 0, hi = last;   // lo/hi: scroll range; phones get one extra text slide at each end   // pitch: card spacing; doubled on phones
 function measure() {
   const phone = phoneMQ.matches;
+  pitch = phone ? PITCH * 2 : PITCH;
+  lo = phone ? -1 : 0; hi = phone ? last + 1 : last;
+  target = clamp(target, lo, hi); pos = clamp(pos, lo, hi);
   const h = stage.clientHeight * (phone ? PHONE_CARD_HEIGHT : CARD_HEIGHT);
   W = Math.min(h * ASPECT, stage.clientWidth * CARD_MAX_WIDTH);
   H = W / ASPECT;
@@ -439,7 +464,7 @@ function measure() {
       }
     });
   });
-  visible = Math.min(24, Math.ceil(stage.clientWidth / 2 / (W * PITCH)) + 1);
+  visible = Math.min(24, Math.ceil(stage.clientWidth / 2 / (W * pitch)) + 1);
 }
 
 /* Cards sit in one tight row. Every card is turned nearly edge-on, a little less the farther
@@ -454,9 +479,17 @@ const angleAt = ad => ANGLE_NEAR - (ANGLE_NEAR - ANGLE_FAR) * (1 - Math.exp(-0.5
    does it turn to face you. So it never grows into its neighbours or appears from behind them. */
 const stageOf = (t, from, to) => ease(clamp((t - from) / (to - from), 0, 1));
 
+document.getElementById('cueRight').addEventListener('click', () => setTarget(0));
+document.getElementById('cueLeft').addEventListener('click', () => setTarget(last));
 const endL = document.getElementById('endLeft'), endR = document.getElementById('endRight');
+let endStrength = 0;
 function endPanels(p) {
-  const l = clamp(1 - p / 1.6, 0, 1), r = clamp(1 - (last - p) / 1.6, 0, 1);   // fade in over the last ~1.6 cards of travel
+  // Desktop: the panels fade in beside the cards over the last ~1.6 cards of travel.
+  // Phones: the text is its own slide past either end (pos -1 / last + 1) and the cards fade fully away.
+  const ph = phoneMQ.matches;
+  const l = ph ? clamp(-p, 0, 1) : clamp(1 - p / 1.6, 0, 1), r = ph ? clamp(p - last, 0, 1) : clamp(1 - (last - p) / 1.6, 0, 1);
+  stage.style.opacity = ph ? 1 - Math.max(l, r) : '';
+  endStrength = Math.max(l, r);   // activate() ignores taps on cards that have faded away
   endL.style.opacity = l; endL.style.visibility = l > 0.01 ? 'visible' : 'hidden'; endL.style.transform = `translateX(${(1 - l) * -40}px)`;
   endR.style.opacity = r; endR.style.visibility = r > 0.01 ? 'visible' : 'hidden'; endR.style.transform = `translateX(${(1 - r) * 40}px)`;
 }
@@ -471,7 +504,7 @@ function layout(p) {
 
     const isOpen = i === openIdx && openT > 0.001;
     const near = Math.min(ad, 1), gap = near * near * (3 - 2 * near);   // smoothstep: the gap opens as a card nears center
-    let x = d * W * PITCH + Math.sign(d) * gap * W * CENTER_GAP;
+    let x = d * W * pitch + Math.sign(d) * gap * W * CENTER_GAP;
     let rot = (d < 0 ? 1 : -1) * angleAt(ad);        // left cards lean one way, right cards the other
     let z = 0;
     if (isOpen) {
@@ -524,7 +557,7 @@ function frame(now) {
   if (pos !== target || openT !== openGoal || openIdx !== wantOpen) raf = requestAnimationFrame(frame); else lastT = 0;
 }
 function kick() { if (!raf) raf = requestAnimationFrame(frame); }
-function setTarget(v) { target = clamp(v, 0, last); kick(); }
+function setTarget(v) { target = clamp(v, lo, hi); kick(); }
 function close() { if (wantOpen >= 0) { wantOpen = -1; kick(); } }
 
 /* Animation loop for the recreated homepages: only covers near the center are updated.
@@ -600,6 +633,7 @@ addEventListener('keydown', e => {
 /* Selecting a card. Handled on pointer-up using the card that was pressed: cards keep moving
    under the cursor, so a normal click event can land on a different element and be dropped. */
 function activate(i) {
+  if (phoneMQ.matches && endStrength > 0.6) return;   // text slide showing: the hidden cards aren't tappable
   lastActivate = performance.now();
   wheelLocked = true;
   if (wantOpen === i && open > .9) close();
@@ -621,14 +655,14 @@ addEventListener('pointermove', e => {
   if (!moved) return;
   close();
   vel = e.clientX - lastX; lastX = e.clientX;
-  target = clamp(startT - (e.clientX - startX) / (W * PITCH), 0, last);
+  target = clamp(startT - (e.clientX - startX) / (W * pitch), lo, hi);
   pos = target;                      // track the pointer 1:1 while dragging
   kick();
 });
 addEventListener('pointerup', () => {
   if (!dragging) return;
   dragging = false; stage.classList.remove('dragging');
-  if (moved) setTarget(target - clamp(vel, -60, 60) / (W * PITCH) * 7);   // let a flick glide
+  if (moved) setTarget(target - clamp(vel, -60, 60) / (W * pitch) * 7);   // let a flick glide
   else if (downIdx >= 0) activate(downIdx);
   setTimeout(() => moved = false, 0);
 });

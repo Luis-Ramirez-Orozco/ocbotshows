@@ -51,7 +51,9 @@
     var gridStart = new Date(firstOfMonth);
     gridStart.setDate(gridStart.getDate() - firstOfMonth.getDay());
     var days = [];
-    for (var i = 0; i < 42; i++) {
+    // Only as many weeks as the month needs (4-6 rows)
+    var rows = Math.ceil((firstOfMonth.getDay() + new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate()) / 7);
+    for (var i = 0; i < rows * 7; i++) {
       var d = new Date(gridStart);
       d.setDate(gridStart.getDate() + i);
       days.push(d);
@@ -96,24 +98,6 @@
       '    <button type="button" class="calendar-confirm-btn" id="calendar-inquire-btn" disabled>Inquire</button>' +
       "  </div>" +
       "</div>" +
-      '<aside class="calendar-modal booking-details" aria-labelledby="details-title">' +
-      '  <div class="calendar-modal-header">' +
-      '    <h2 id="details-title">Show Details</h2>' +
-      "  </div>" +
-      '  <section class="details-section">' +
-      "    <h3>The Show</h3>" +
-      "    <p><strong>45 minutes</strong> total</p>" +
-      "    <ul>" +
-      "      <li>30 minutes of dancing</li>" +
-      "      <li>15 minutes of photos</li>" +
-      "    </ul>" +
-      "  </section>" +
-      '  <section class="details-section">' +
-      "    <h3>Contact</h3>" +
-      contactLine(CONTACT_EMAIL, CONTACT_EMAIL.indexOf("@") > -1 ? "mailto:" + CONTACT_EMAIL : null) +
-      contactLine(CONTACT_PHONE, /\d{7}/.test(CONTACT_PHONE.replace(/\D/g, "")) ? "sms:" + CONTACT_PHONE.replace(/[^\d+]/g, "") + "?&body=" + encodeURIComponent(SMS_MESSAGE) : null, "Text:") +
-      "  </section>" +
-      "</aside>" +
       "</div>";
     document.body.appendChild(overlay);
     return overlay;
@@ -263,6 +247,14 @@
       monthLabel.textContent = MONTH_NAMES[displayedMonth.getMonth()] + " " + displayedMonth.getFullYear();
       gridEl.innerHTML = "";
       buildMonthGrid(displayedMonth).forEach(function (date) {
+        // Days from the previous/next month are left blank, so only this month's dates show
+        if (!isSameMonth(date, displayedMonth)) {
+          var blank = document.createElement("span");
+          blank.className = "calendar-day-blank";
+          blank.setAttribute("aria-hidden", "true");
+          gridEl.appendChild(blank);
+          return;
+        }
         var price = priceFor(date);
         var btn = document.createElement("button");
         btn.type = "button";
@@ -380,7 +372,8 @@
       phoneError.textContent = "";
       phoneOverlay.classList.add("is-open");
       phoneOverlay.setAttribute("aria-hidden", "false");
-      nameInput.focus();
+      // Don't focus the fields: the visitor taps one when ready (avoids the phone keyboard popping up on its own)
+      if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     }
 
     function closePhone() {

@@ -132,7 +132,7 @@
   }
   .bar .consult:hover { background: rgba(0,0,0,.06); }
   /* Phones: the bar is just the Inquire button (plus the small sound toggle); no description */
-  @media (max-width: 700px) {
+  @media (max-width: 700px), (orientation: landscape) and (max-height: 520px), (orientation: portrait) and (max-width: 1100px) {
     /* full-width pill so the button always sits inside the white bubble */
     .bar { left: 16px; right: 16px; transform: none; max-width: none; width: auto; bottom: max(16px, env(safe-area-inset-bottom)); gap: 10px; padding: 8px; }
     .bar .meta { display: none; }
@@ -170,12 +170,45 @@
   }
 
   .play-badge { display: none; }
-  @media (max-width: 700px) {
+  @media (max-width: 700px), (orientation: landscape) and (max-height: 520px), (orientation: portrait) and (max-width: 1100px) {
     .play-badge { display: flex; position: absolute; bottom: 12px; left: 12px; width: 44px; height: 44px; border-radius: 50%; align-items: center; justify-content: center; background: rgba(255,255,255,.28); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 0 0 1px rgba(255,255,255,.55), 0 2px 8px rgba(0,0,0,.35); pointer-events: none; }
     .bar { background: rgba(255,255,255,.97); -webkit-backdrop-filter: none; backdrop-filter: none; }
     .play-badge { background: rgba(0,0,0,.38); -webkit-backdrop-filter: none; backdrop-filter: none; }
     .end .cue { background: rgba(255,255,255,.92); -webkit-backdrop-filter: none; backdrop-filter: none; }
     .play-badge svg { width: 20px; height: 20px; fill: #fff; margin-left: 2px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.4)); }
+  }
+  /* Landscape phones: short screen, so a one-row header, a compact bar and arrows at the sides */
+  @media (orientation: landscape) and (max-height: 520px) {
+    header { grid-template-columns: 1fr auto 1fr; grid-template-rows: auto; row-gap: 0; padding: 8px 18px 0; }
+    header .brand { grid-column: 1; grid-row: 1; justify-self: start; font-size: 1.05rem; }
+    header h1 { grid-column: 2; grid-row: 1; font-size: 9px; }
+    header #counter { grid-column: 3; grid-row: 1; font-size: 12px; }
+    .stage { top: 40px; bottom: 66px; }
+    .bar { left: 50%; right: auto; transform: translateX(-50%); width: min(380px, calc(100vw - 32px)); bottom: max(8px, env(safe-area-inset-bottom)); padding: 6px; }
+    .bar a { min-height: 44px; font-size: 16px; }
+    #sound { width: 36px; height: 36px; }
+    .end { top: 44px; bottom: 72px; left: 90px; right: 90px; }
+    .end h2 { font-size: 2.1rem; }
+    .end .lead { font-size: 14px; margin-top: 8px; max-width: 52ch; }
+    .end .eyebrow { font-size: 11px; margin-bottom: 6px; }
+    .end .cue { bottom: auto; top: 50%; margin: -28px 0 0; }
+    .end .cue-right { left: auto; right: 22px; }
+    .end .cue-left { left: 22px; right: auto; }
+  }
+  /* Portrait tablets: bigger type, a centered bar instead of a full-width pill */
+  @media (orientation: portrait) and (min-width: 701px) and (max-width: 1100px) {
+    header { padding: 26px 32px 10px; }
+    header .brand { font-size: 1.8rem; }
+    header h1 { font-size: 12px; }
+    header #counter { font-size: 15px; }
+    .stage { top: 100px; bottom: 140px; }
+    .bar { left: 50%; right: auto; transform: translateX(-50%); width: min(460px, calc(100vw - 48px)); bottom: 28px; padding: 9px; }
+    .bar a { min-height: 58px; font-size: 18px; }
+    .end { top: 120px; bottom: 170px; left: 70px; right: 70px; }
+    .end h2 { font-size: 4.2rem; }
+    .end .lead { font-size: 21px; max-width: 34ch; }
+    .end .eyebrow { font-size: 15px; }
+    .end .cue { bottom: 150px; }
   }
 </style>
 <link rel="stylesheet" href="assets/calendar.css?v=3">
@@ -383,7 +416,8 @@ const counter = document.getElementById('counter');
 const last = SITES.length - 1;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
-const START = matchMedia('(max-width: 700px)').matches ? -1 : 0;   // desktop starts on card 1; phones start on the intro text slide (-1)
+const COMPACT_Q = '(max-width: 700px), (orientation: landscape) and (max-height: 520px), (orientation: portrait) and (max-width: 1100px)';   // phones, landscape phones and portrait tablets share the compact layout
+const START = matchMedia(COMPACT_Q).matches ? -1 : 0;   // desktop starts on card 1; phones start on the intro text slide (-1)
 let target = START, pos = START, index = -1, W = 0, H = 0, raf = 0, lastT = 0;
 let wantOpen = -1, openIdx = -1, open = 0, openT = 0, visible = 9;   // opened card index, how far it has swung open (0-1), cards drawn per side
 let moved = false;
@@ -440,7 +474,7 @@ const covers = SITES.map((s, i) => {
 
 /* Phones (<= 700px wide): smaller cards at rest, and the tapped card grows to fill most of the screen.
    Desktop is untouched: openScale stays 1 and CARD_HEIGHT is used as before. */
-const phoneMQ = matchMedia('(max-width: 700px)');
+const phoneMQ = matchMedia(COMPACT_Q), landscapeMQ = matchMedia('(orientation: landscape) and (max-height: 520px)'), tabletMQ = matchMedia('(orientation: portrait) and (min-width: 701px) and (max-width: 1100px)');
 const PHONE_PITCH = 0.31, PHONE_ANGLE_FAR = ANGLE_FAR;   // wide spacing + more edge-on lean: neighbours no longer overlap, so no card appears to come out from behind another
 const PHONE_SCROLL = 0.682;              // phone scroll multiplier: 10% more cards per swipe than the previous feel (scales with PHONE_PITCH: 0.374 * 1.1 * 0.31 / 0.187)
 const PHONE_CENTER_GAP = 0.45;           // room beside the flat centered card so leaning neighbours don't slide behind it
@@ -452,10 +486,10 @@ function measure() {
   angleFar = phone ? PHONE_ANGLE_FAR : ANGLE_FAR;
   lo = phone ? -1 : 0; hi = phone ? last + 1 : last;
   target = clamp(target, lo, hi); pos = clamp(pos, lo, hi);
-  const h = stage.clientHeight * (phone ? PHONE_CARD_HEIGHT : CARD_HEIGHT);
+  const h = stage.clientHeight * (phone ? (landscapeMQ.matches ? 0.94 : tabletMQ.matches ? 0.82 : PHONE_CARD_HEIGHT) : CARD_HEIGHT);
   W = Math.min(h * ASPECT, stage.clientWidth * CARD_MAX_WIDTH);
   H = W / ASPECT;
-  openScale = phone ? Math.max(1, Math.min(stage.clientWidth * 0.9 / W, stage.clientHeight * 0.92 / H)) : 1;
+  openScale = phone ? (tabletMQ.matches ? Math.min(stage.clientWidth * 0.9 / W, stage.clientHeight * 0.92 / H) / (2400 / (2400 - W * 0.9)) : Math.max(1, Math.min(stage.clientWidth * 0.9 / W, stage.clientHeight * 0.92 / H))) : 1;   // tablets: the forward lift already magnifies the card, so leave room for it
   covers.forEach(el => {
     el.style.width = W + 'px'; el.style.height = H + 'px';
     el.style.marginLeft = -W / 2 + 'px'; el.style.marginTop = -H / 2 + 'px';
@@ -541,10 +575,10 @@ function layout(p) {
       const lean = -(turn * clamp(d / (0.0001 + turn * 0.6), -1, 1) + (1 - turn) * (d < 0 ? -1 : 1));
       rot = lean * angleAt(ad) * (1 - turn); z = lift * liftPx;
     }
-    else if (openT > 0.001 && openIdx >= 0) x += Math.sign(i - openIdx) * spread * W * (OPEN_GAP + (openScale - 1) * 0.5);
+    else if (openT > 0.001 && openIdx >= 0) x += Math.sign(i - openIdx) * spread * W * (OPEN_GAP + Math.max(0, openScale - 1) * 0.5);
 
     const y = 0;
-    el.style.transform = `translate3d(${x}px,${y}px,${z}px) rotateY(${rot}deg)` + (isOpen && openScale > 1 ? ` scale(${1 + (openScale - 1) * turn})` : '');
+    el.style.transform = `translate3d(${x}px,${y}px,${z}px) rotateY(${rot}deg)` + (isOpen && openScale !== 1 ? ` scale(${1 + (openScale - 1) * turn})` : '');
     el._shade.style.opacity = isOpen ? 0 : Math.min(ad, 5) * 0.05;
     if (el._badge) el._badge.style.opacity = isOpen ? 1 - openT : 1;
 

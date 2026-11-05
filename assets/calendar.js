@@ -177,6 +177,11 @@
       '  <div class="calendar-footer">' +
       '    <span id="phone-error" class="phone-error"></span>' +
       '    <button type="button" class="calendar-confirm-btn" id="phone-send">Send</button>' +
+      // Phones: two buttons instead of Send, so the visitor can jump straight into email or a text message
+      '    <span class="send-split">' +
+      '      <button type="button" class="calendar-confirm-btn" id="phone-email">Email</button>' +
+      '      <button type="button" class="calendar-confirm-btn" id="phone-text">Text</button>' +
+      "    </span>" +
       "  </div>" +
       "</div>";
     document.body.appendChild(overlay);
@@ -232,6 +237,8 @@
     var phoneInput = phoneOverlay.querySelector("#phone-input");
     var phoneError = phoneOverlay.querySelector("#phone-error");
     var phoneSend = phoneOverlay.querySelector("#phone-send");
+    var phoneEmail = phoneOverlay.querySelector("#phone-email");
+    var phoneText = phoneOverlay.querySelector("#phone-text");
 
     var thankYouOverlay = buildThankYouModal();
     var thankYouClose = thankYouOverlay.querySelector("#thankyou-close");
@@ -398,7 +405,7 @@
     }
 
     var lastMail = null;
-    function buildMailto(name, phone) {
+    function buildMessage(name, phone) {
       var subject = "New Booking Inquiry" +
         (selectedDate ? " — " + selectedDate.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "");
 
@@ -424,12 +431,20 @@
       lines.push("Estimated total: $" + grandTotal);
       lines.push("");
       lines.push("Customer name: " + name);
-      lines.push("Customer phone: " + phone);
+      if (phone) lines.push("Customer phone: " + phone);
 
-      lastMail = { subject: subject, body: lines.join("\n") };
+      return { subject: subject, body: lines.join("\n") };
+    }
+    function buildMailto(name, phone) {
+      lastMail = buildMessage(name, phone);
       return "mailto:" + OWNER_EMAIL +
-        "?subject=" + encodeURIComponent(subject) +
-        "&body=" + encodeURIComponent(lines.join("\n"));
+        "?subject=" + encodeURIComponent(lastMail.subject) +
+        "&body=" + encodeURIComponent(lastMail.body);
+    }
+    // Opens the messaging app with the booking details addressed to the owner's number.
+    function buildSms(name, phone) {
+      var msg = buildMessage(name, phone);
+      return "sms:" + CONTACT_PHONE.replace(/[^\d+]/g, "") + "?&body=" + encodeURIComponent(msg.subject + "\n" + msg.body);
     }
 
     document.addEventListener("keydown", onGlobalKeydown);
@@ -505,6 +520,26 @@
     phoneInput.addEventListener("keydown", function (e) {
       if (e.key === "Enter") phoneSend.click();
     });
+    function finishInquiry(fallbackHtml) {
+      var fb = thankYouOverlay.querySelector("#mail-fallback");
+      if (fb) fb.innerHTML = fallbackHtml;
+      closePhone();
+      closeCalendar();
+      openThankYou();
+      resetBooking();
+    }
+    // Text: only a name is needed, since the message itself comes from the visitor's own number.
+    phoneText.addEventListener("click", function () {
+      var name = nameInput.value.trim();
+      if (!name) {
+        phoneError.textContent = "Please enter your name.";
+        nameInput.focus();
+        return;
+      }
+      window.location.href = buildSms(name, phoneInput.value.trim());
+      finishInquiry("Text didn't open? Message us at " + CONTACT_PHONE + ".");
+    });
+    phoneEmail.addEventListener("click", function () { phoneSend.click(); });
     phoneSend.addEventListener("click", function () {
       var name = nameInput.value.trim();
       if (!name) {

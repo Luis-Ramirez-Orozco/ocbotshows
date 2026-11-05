@@ -361,7 +361,7 @@ const DESIGN_W = 1280;     // recreations are laid out 1280px wide (height = 128
 const VIDEO_RANGE = 2.5;   // videos play while the card is within this many cards of the center
 
 /* Sound: videos start muted-off; the speaker button in the bar switches it for the opened video */
-let soundOn = false;
+let soundOn = matchMedia('(max-width: 700px)').matches;   // phones: sound is on by default, so a tapped video plays with audio
 
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -441,8 +441,8 @@ const covers = SITES.map((s, i) => {
 /* Phones (<= 700px wide): smaller cards at rest, and the tapped card grows to fill most of the screen.
    Desktop is untouched: openScale stays 1 and CARD_HEIGHT is used as before. */
 const phoneMQ = matchMedia('(max-width: 700px)');
-const PHONE_PITCH = PITCH * 1.1, PHONE_ANGLE_FAR = ANGLE_FAR;   // wide spacing + more edge-on lean: neighbours no longer overlap, so no card appears to come out from behind another
-const PHONE_SCROLL = 0.374;              // phone scroll multiplier: with the tight shelf spacing this moves the same number of cards per swipe as the old 0.5 spacing
+const PHONE_PITCH = 0.31, PHONE_ANGLE_FAR = ANGLE_FAR;   // wide spacing + more edge-on lean: neighbours no longer overlap, so no card appears to come out from behind another
+const PHONE_SCROLL = 0.682;              // phone scroll multiplier: 10% more cards per swipe than the previous feel (scales with PHONE_PITCH: 0.374 * 1.1 * 0.31 / 0.187)
 const PHONE_CENTER_GAP = 0.45;           // room beside the flat centered card so leaning neighbours don't slide behind it
 const PHONE_CARD_HEIGHT = CARD_HEIGHT;    // phones use the full desktop card size at rest
 let openScale = 1, pitch = PITCH, lo = 0, hi = last;   // lo/hi: scroll range; phones get one extra text slide at each end   // pitch: card spacing; doubled on phones
@@ -552,7 +552,7 @@ function layout(p) {
         el._playing = true;
         if (!v.getAttribute('src')) v.src = SITES[i].video;
         v.muted = !soundOn;
-        v.play().catch(() => { v.muted = true; v.play().catch(() => {}); });
+        v.play().catch(() => { v.muted = true; if (phoneMQ.matches) { soundOn = false; paintSound(); } v.play().catch(() => {}); });   // browser refused audio: play muted and show the button as off
       } else if (!want && el._playing) { el._playing = false; v.pause(); }
       if (!isOpen && v.getAttribute('src')) { v.removeAttribute('src'); v.load(); }   // closed: release the video so memory stays low
     }

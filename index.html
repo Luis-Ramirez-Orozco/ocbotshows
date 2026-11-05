@@ -104,15 +104,15 @@
   /* Floating info bar for the focused site */
   .bar {
     position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 50;
-    display: flex; align-items: center; gap: 18px; padding: 8px 8px 8px 20px; max-width: calc(100vw - 32px);
-    background: rgba(255,255,255,.72); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    display: flex; align-items: center; gap: 18px; padding: 8px 8px 8px 20px; width: min(540px, calc(100vw - 32px)); box-sizing: border-box;   /* fixed size: the description fits inside, the bar never resizes */
+    background: rgba(255,255,255,.96);   /* solid: a live blur over moving 3D cards is costly and made scrolling stutter */
     border-radius: 999px; box-shadow: 0 6px 24px rgba(0,0,0,.12);
     transition: opacity .2s;
   }
   .bar.swap { opacity: .3; }
-  .bar .meta { min-width: 0; }
+  .bar .meta { min-width: 0; flex: 1; display: flex; align-items: center; }
   .bar h2 { font-size: 15px; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .bar p { font-size: 13px; color: var(--fg); white-space: normal; max-width: 44ch; min-height: 2.7em; line-height: 1.35; display: flex; align-items: center; }
+  .bar p { font-size: 13px; color: var(--fg); white-space: normal; line-height: 1.35; max-height: 2.7em; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }   /* always two lines tall; longer text is clipped with an ellipsis */
   .bar a {
     flex: none; display: inline-flex; align-items: center; justify-content: center; min-height: 52px; padding: 0 30px;
     border-radius: 999px; background: var(--accent); color: #fff;
@@ -361,7 +361,7 @@ const DESIGN_W = 1280;     // recreations are laid out 1280px wide (height = 128
 const VIDEO_RANGE = 2.5;   // videos play while the card is within this many cards of the center
 
 /* Sound: videos start muted-off; the speaker button in the bar switches it for the opened video */
-let soundOn = matchMedia('(max-width: 700px)').matches;   // phones: sound is on by default, so a tapped video plays with audio
+let soundOn = true;   // sound is on by default, so a clicked video plays with audio (the speaker button turns it off)
 
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -527,6 +527,9 @@ function layout(p) {
     if (el.style.display === 'none') { el.style.display = ''; if (el._load) { el._load(); el._load = null; } }
 
     const isOpen = i === openIdx && openT > 0.001;
+    // Perf: far cards are small and edge-on, so skip their 20 rounded-corner strips (fewer 3D layers to composite while scrolling)
+    const cornersOn = ad <= 4 || i === openIdx;
+    if (el._cornersOn !== cornersOn) { el._cornersOn = cornersOn; el._corners.forEach(c => { c.style.display = cornersOn ? '' : 'none'; }); }
     const near = Math.min(ad, 1), gap = near * near * (3 - 2 * near);   // smoothstep: the gap opens as a card nears center
     let x = d * W * pitch + Math.sign(d) * gap * W * (ph ? PHONE_CENTER_GAP : CENTER_GAP);
     let rot = (d < 0 ? 1 : -1) * angleAt(ad);        // left cards lean one way, right cards the other
@@ -552,7 +555,7 @@ function layout(p) {
         el._playing = true;
         if (!v.getAttribute('src')) v.src = SITES[i].video;
         v.muted = !soundOn;
-        v.play().catch(() => { v.muted = true; if (phoneMQ.matches) { soundOn = false; paintSound(); } v.play().catch(() => {}); });   // browser refused audio: play muted and show the button as off
+        v.play().catch(() => { v.muted = true; soundOn = false; paintSound(); v.play().catch(() => {}); });   // browser refused audio: play muted and show the button as off
       } else if (!want && el._playing) { el._playing = false; v.pause(); }
       if (!isOpen && v.getAttribute('src')) { v.removeAttribute('src'); v.load(); }   // closed: release the video so memory stays low
     }
@@ -694,6 +697,17 @@ addEventListener('pointerup', () => {
 });
 
 addEventListener('resize', () => { measure(); layout(pos); });
+// Load and decode covers one at a time while the browser is idle, so scrolling never waits on an image
+(function preloadCovers() {
+  let n = 0;
+  const idle = window.requestIdleCallback || (f => setTimeout(f, 60));
+  (function step() {
+    while (n < covers.length && !covers[n]._load) n++;
+    if (n >= covers.length) return;
+    const el = covers[n++]; el._load(); el._load = null;
+    idle(step);
+  })();
+})();
 measure(); kick(); requestAnimationFrame(liveLoop);
 </script>
 </body>

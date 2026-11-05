@@ -441,8 +441,8 @@ const covers = SITES.map((s, i) => {
 /* Phones (<= 700px wide): smaller cards at rest, and the tapped card grows to fill most of the screen.
    Desktop is untouched: openScale stays 1 and CARD_HEIGHT is used as before. */
 const phoneMQ = matchMedia('(max-width: 700px)');
-const PHONE_PITCH = PITCH, PHONE_ANGLE_FAR = ANGLE_FAR;   // wide spacing + more edge-on lean: neighbours no longer overlap, so no card appears to come out from behind another
-const PHONE_SCROLL = 0.5;                // phones scroll at half speed: a swipe moves half as many cards
+const PHONE_PITCH = PITCH * 1.1, PHONE_ANGLE_FAR = ANGLE_FAR;   // wide spacing + more edge-on lean: neighbours no longer overlap, so no card appears to come out from behind another
+const PHONE_SCROLL = 1;                  // phone scroll speed multiplier (1 = original feel)
 const PHONE_CENTER_GAP = 0.45;           // room beside the flat centered card so leaning neighbours don't slide behind it
 const PHONE_CARD_HEIGHT = CARD_HEIGHT;    // phones use the full desktop card size at rest
 let openScale = 1, pitch = PITCH, lo = 0, hi = last;   // lo/hi: scroll range; phones get one extra text slide at each end   // pitch: card spacing; doubled on phones

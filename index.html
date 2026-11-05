@@ -172,6 +172,9 @@
   .play-badge { display: none; }
   @media (max-width: 700px) {
     .play-badge { display: flex; position: absolute; bottom: 12px; right: 12px; width: 44px; height: 44px; border-radius: 50%; align-items: center; justify-content: center; background: rgba(255,255,255,.28); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 0 0 1px rgba(255,255,255,.55), 0 2px 8px rgba(0,0,0,.35); pointer-events: none; }
+    .bar { background: rgba(255,255,255,.97); -webkit-backdrop-filter: none; backdrop-filter: none; }
+    .play-badge { background: rgba(0,0,0,.38); -webkit-backdrop-filter: none; backdrop-filter: none; }
+    .end .cue { background: rgba(255,255,255,.92); -webkit-backdrop-filter: none; backdrop-filter: none; }
     .play-badge svg { width: 20px; height: 20px; fill: #fff; margin-left: 2px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.4)); }
   }
 </style>
@@ -439,6 +442,7 @@ const covers = SITES.map((s, i) => {
    Desktop is untouched: openScale stays 1 and CARD_HEIGHT is used as before. */
 const phoneMQ = matchMedia('(max-width: 700px)');
 const PHONE_PITCH = PITCH, PHONE_ANGLE_FAR = ANGLE_FAR;   // wide spacing + more edge-on lean: neighbours no longer overlap, so no card appears to come out from behind another
+const PHONE_SCROLL = 0.5;                // phones scroll at half speed: a swipe moves half as many cards
 const PHONE_CENTER_GAP = 0.45;           // room beside the flat centered card so leaning neighbours don't slide behind it
 const PHONE_CARD_HEIGHT = CARD_HEIGHT;    // phones use the full desktop card size at rest
 let openScale = 1, pitch = PITCH, lo = 0, hi = last;   // lo/hi: scroll range; phones get one extra text slide at each end   // pitch: card spacing; doubled on phones
@@ -615,7 +619,7 @@ stage.addEventListener('wheel', e => {
   if (gap > 150) wheelLocked = false;                     // a pause means the old gesture is over
   if (wheelLocked || now - lastActivate < 300 || Math.abs(delta) < 2) return;
   close();
-  setTarget(target + delta * 0.006);
+  setTarget(target + delta * 0.006 * (phoneMQ.matches ? PHONE_SCROLL : 1));
 }, { passive: false });
 
 /* Sound button */
@@ -677,14 +681,14 @@ addEventListener('pointermove', e => {
   if (!moved) return;
   close();
   vel = e.clientX - lastX; lastX = e.clientX;
-  target = clamp(startT - (e.clientX - startX) / (W * pitch), lo, hi);
+  target = clamp(startT - (e.clientX - startX) / (W * pitch) * (phoneMQ.matches ? PHONE_SCROLL : 1), lo, hi);
   pos = target;                      // track the pointer 1:1 while dragging
   kick();
 });
 addEventListener('pointerup', () => {
   if (!dragging) return;
   dragging = false; stage.classList.remove('dragging');
-  if (moved) setTarget(target - clamp(vel, -60, 60) / (W * pitch) * 7);   // let a flick glide
+  if (moved) setTarget(target - clamp(vel, -60, 60) / (W * pitch) * 7 * (phoneMQ.matches ? PHONE_SCROLL : 1));   // let a flick glide
   else if (downIdx >= 0) activate(downIdx);
   setTimeout(() => moved = false, 0);
 });

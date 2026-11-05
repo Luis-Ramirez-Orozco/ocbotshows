@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://luis-ramirez-orozco.github.io/ocbotshows/sitemap.xml

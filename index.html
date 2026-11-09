@@ -247,8 +247,8 @@
   header h1 { font-size: 13px; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; }
   header .hright { justify-self: end; display: flex; align-items: center; gap: 22px; }
   header #counter { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
-  #faq-open { pointer-events: auto; background: none; border: 0; border-bottom: 1.5px solid var(--accent); padding: 4px 1px; font: inherit; font-size: 12px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--fg); cursor: pointer; }
-  #faq-open:hover { color: var(--accent); }
+  #faq-open, #contact-open { pointer-events: auto; background: none; border: 0; border-bottom: 1.5px solid var(--accent); padding: 4px 1px; font: inherit; font-size: 12px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--fg); cursor: pointer; }
+  #faq-open:hover, #contact-open:hover { color: var(--accent); }
 
   /* The shelf: full-bleed so the cards run edge to edge */
   .stage {
@@ -360,7 +360,8 @@
     header .brand { grid-column: 2; grid-row: 1; font-size: 1.35rem; white-space: nowrap; }
     header h1 { grid-column: 2; grid-row: 2; font-size: 10px; letter-spacing: .2em; white-space: nowrap; }
     header .hright { grid-column: 3; grid-row: 1 / span 2; align-self: center; justify-self: end; white-space: nowrap; flex-direction: column; align-items: flex-end; gap: 5px; }
-    #faq-open { font-size: 11px; }
+    #faq-open, #contact-open { font-size: 11px; }
+    header .hright { gap: 3px; }
     .stage { top: 74px; bottom: 96px; }   /* cards are centered in the space between header and bar */
     /* End-of-row text: its own full slide past either end (no card), with a glass blinking arrow to scroll on */
     .end {
@@ -423,7 +424,7 @@
     header h1 { font-size: 12px; }
     header #counter { font-size: 15px; }
     header .hright { flex-direction: row; align-items: center; gap: 22px; }
-    #faq-open { font-size: 12px; }
+    #faq-open, #contact-open { font-size: 12px; }
     .stage { top: 100px; bottom: 140px; }
     .bar { left: 50%; right: auto; transform: translateX(-50%); width: min(460px, calc(100vw - 48px)); bottom: 28px; padding: 9px; }
     .bar a { min-height: 58px; font-size: 18px; }
@@ -449,17 +450,42 @@
   .faq-list details[open] summary { background: #ff5a3c; color: #fff; }
   .faq-list details[open] summary::after { content: "\2212"; color: #fff; }
   .faq-list p { margin: .55rem .85rem .4rem; color: #3a3a3f; font-size: .98rem; line-height: 1.5; }
+  /* Contact popup + the Contact card at the end of the shelf */
+  .contact-modal { max-width: 520px; }
+  .contact-modal .phone-helper { color: #77757a; }
+  a.send-choice-btn { text-decoration: none; text-align: center; }
+  .send-choice-btn small { display: block; margin-top: -.35rem; font-size: .8rem; font-weight: 600; color: #77757a; word-break: break-all; }
+  .send-choice-btn:hover small, .send-choice-btn:focus-visible small { color: rgba(255,255,255,.9); }
+  .contact-note { margin: 1.1rem 0 0; font-size: .9rem; color: #77757a; text-align: center; }
+  .contact-face {
+    container-type: size; position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;
+    padding: 9cqw; gap: 5cqw; background: linear-gradient(165deg, #ff6a4d, #ff5a3c 55%, #e84424); color: #fff;
+    font-family: "Arial Narrow", Impact, "Helvetica Neue", Arial, sans-serif;
+  }
+  .contact-face .eyebrow { font-size: 5cqw; font-weight: 700; letter-spacing: .22em; text-transform: uppercase; opacity: .9; }
+  .contact-face h3 { font-size: 21cqw; line-height: .92; font-weight: 700; text-transform: uppercase; letter-spacing: .01em; }
+  .contact-face p { font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif; font-size: 5.2cqw; line-height: 1.4; max-width: 26ch; opacity: .95; }
+  .contact-face .contact-links { display: flex; flex-direction: column; gap: 3.5cqw; width: 100%; margin-top: 2cqw; }
+  .contact-link {
+    display: flex; flex-direction: column; align-items: center; gap: .6cqw; padding: 4.5cqw 3cqw; border-radius: 999px; background: #fff; color: #101010; text-decoration: none;
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif; font-weight: 700; font-size: 6.4cqw;
+  }
+  .contact-link small { font-size: 4.2cqw; font-weight: 600; color: #77757a; }
+  .contact-link:hover { background: #101010; color: #fff; }
+  .contact-link:hover small { color: rgba(255,255,255,.8); }
+  /* Links only work once the card is opened and facing you; until then a tap just opens the card */
+  .cover:not(.is-open) .contact-link { pointer-events: none; }
   /* Readable by search engines and screen readers, not shown on the carousel itself */
   .seo { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); }
 </style>
-<link rel="stylesheet" href="assets/calendar.css?v=5">
+<link rel="stylesheet" href="assets/calendar.css?v=6">
 </head>
 <body>
 
 <header>
   <span class="brand">OC Bot Shows</span>
   <h1>Elevate Your Experience</h1>
-  <div class="hright"><button type="button" id="faq-open" aria-haspopup="dialog">FAQ</button><span id="counter"></span></div>
+  <div class="hright"><button type="button" id="faq-open" aria-haspopup="dialog">FAQ</button><button type="button" id="contact-open" aria-haspopup="dialog">Contact</button><span id="counter"></span></div>
 </header>
 
 <main class="stage" id="stage" aria-label="Website carousel"></main>
@@ -484,7 +510,7 @@
 </section>
 
 
-<script src="assets/calendar.js?v=5"></script>
+<script src="assets/calendar.js?v=6"></script>
 
 <section class="seo" aria-label="About OC Bot Shows">
 <h2>LED robot performers for events in Orange County, CA</h2>
@@ -513,6 +539,18 @@
 <details><summary>What areas do you serve?</summary><p>We serve Orange County and the surrounding areas. Contact us to check availability for your location.</p></details>
 <details><summary>How do I book?</summary><p>Click Inquire today, pick your date and send your request by email to ocbotshows@gmail.com or by text to 949-395-0250. Please allow up to 24 hours for a response.</p></details>
 </div>
+</div>
+</div>
+
+<div class="calendar-overlay" id="contact-overlay" aria-hidden="true">
+<div class="calendar-modal contact-modal" role="dialog" aria-modal="true" aria-labelledby="contact-title">
+<div class="calendar-modal-header"><h2 id="contact-title">Contact Us</h2><button type="button" class="calendar-close" id="contact-close" aria-label="Close">&times;</button></div>
+<p class="phone-helper">Questions, or ready to book your show? Reach out any way you like.</p>
+<div class="send-choice">
+<a class="send-choice-btn" href="mailto:ocbotshows@gmail.com"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg><span>Send Email</span><small>ocbotshows@gmail.com</small></a>
+<a class="send-choice-btn" href="sms:+19493950250"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.5-4.6A8 8 0 1 1 21 12Z"/></svg><span>Send Text</span><small>949-395-0250</small></a>
+</div>
+<p class="contact-note">Serving Orange County and nearby. Please allow up to 24 hours for a reply.</p>
 </div>
 </div>
 
@@ -643,7 +681,13 @@ const SITES = [
     edge: "#310086", edgeText: "#f5f5f5", tags: "Video", description: "Memories made here: big smiles, big laughs and great photos." },
   { title: "flip it", url: "assets/video/flip-it.mp4", video: "assets/video/flip-it.mp4", poster: "assets/poster/flip-it.jpg",
     edge: "#612c4f", edgeText: "#f5f5f5", tags: "Video", description: "A show built to create moments, not just entertainment." },
+  { title: "Contact Us", contact: true, edge: "#ff5a3c", edgeText: "#ffffff", tags: "Contact", description: "Questions, or ready to book? Open the card to email or text us." },
 ];
+
+/* The Contact card is for phones and tablets only; on desktop the header's Contact link covers it */
+if (!matchMedia('(max-width: 700px), (orientation: landscape) and (max-height: 520px), (orientation: portrait) and (max-width: 1100px)').matches) {
+  for (let k = SITES.length - 1; k >= 0; k--) if (SITES[k].contact) SITES.splice(k, 1);
+}
 
 /* Tunables */
 /* Card size. Everything else (spacing, thickness, corner radius) scales with the card width. */
@@ -706,7 +750,11 @@ const covers = SITES.map((s, i) => {
   el.style.setProperty('--ef', s.edgeText || '#fff');
 
   const front = document.createElement('div'); front.className = 'front';
-  if (s.cover && RECREATIONS[s.cover]) {
+  if (s.contact) {
+    front.innerHTML = '<div class="contact-face"><span class="eyebrow">Let\u2019s talk</span><h3>Contact Us</h3><p>Questions, or ready to book your show? Reach out any time.</p>' +
+      '<div class="contact-links"><a class="contact-link" href="mailto:ocbotshows@gmail.com">Email us<small>ocbotshows@gmail.com</small></a>' +
+      '<a class="contact-link" href="sms:+19493950250">Text us<small>949-395-0250</small></a></div></div>';
+  } else if (s.cover && RECREATIONS[s.cover]) {
     const rec = RECREATIONS[s.cover]();
     front.innerHTML = rec.html;
     if (rec.init) el._live = rec.init(front.firstElementChild);
@@ -851,6 +899,7 @@ function layout(p) {
     const y = 0;
     el.style.transform = `translate3d(${x}px,${y}px,${z}px) rotateY(${rot}deg)` + (isOpen && openScale !== 1 ? ` scale(${1 + (openScale - 1) * turn})` : '');
     el._shade.style.opacity = isOpen ? 0 : Math.min(ad, 5) * 0.05;
+    const facing = isOpen && openT > 0.85; if (el._facing !== facing) { el._facing = facing; el.classList.toggle('is-open', facing); }
     if (el._badge) el._badge.style.opacity = isOpen ? 1 - openT : 1;
 
     // Videos play only while their card is opened (keeps scrolling smooth)
@@ -978,6 +1027,7 @@ let lastActivate = 0, downIdx = -1, lastWheel = 0, wheelLocked = false;
 /* Drag / swipe */
 let dragging = false, startX = 0, startT = 0, lastX = 0, vel = 0;
 stage.addEventListener('pointerdown', e => {
+  if (e.target.closest && e.target.closest('.contact-link') && e.target.closest('.cover.is-open')) return;   // let the Email / Text links on the opened Contact card work
   const c = e.target.closest && e.target.closest('.cover');
   downIdx = c ? covers.indexOf(c) : -1;
   dragging = true; moved = false; startX = lastX = e.clientX; startT = target; vel = 0;
@@ -1014,6 +1064,16 @@ addEventListener('resize', () => { measure(); layout(pos); });
   })();
 })();
 measure(); kick(); requestAnimationFrame(liveLoop);
+
+/* Contact popup */
+(function () {
+  const ov = document.getElementById('contact-overlay'), openBtn = document.getElementById('contact-open'), closeBtn = document.getElementById('contact-close');
+  const setOpen = on => { ov.classList.toggle('is-open', on); ov.setAttribute('aria-hidden', String(!on)); document.body.classList.toggle('modal-open', on); if (on) closeBtn.focus(); else openBtn.focus(); };
+  openBtn.addEventListener('click', () => setOpen(true));
+  closeBtn.addEventListener('click', () => setOpen(false));
+  ov.addEventListener('click', e => { if (e.target === ov) setOpen(false); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && ov.classList.contains('is-open')) setOpen(false); });
+})();
 
 /* FAQ popup */
 (function () {

@@ -1,6 +1,6 @@
 // Vanilla port of a "Calendar" React component, single-date mode only: a
 // popup booking calendar triggered by any "#book-now-link" on the page, with
-// an "Add-ons" popup and an "Inquire" flow (phone number -> mailto -> thanks)
+// an "Add-ons" popup and an "Inquire" flow (choose Email or Text -> pre-filled message -> thanks)
 // opened from within it.
 // Self-contained: builds its own modal markup, so pages only need to link
 // calendar.css + calendar.js, no shared HTML to keep in sync.
@@ -19,9 +19,6 @@
   // Shown in the "Show Details" panel next to the calendar.
   var CONTACT_EMAIL = "ocbotshows@gmail.com";
   var CONTACT_PHONE = "949-395-0250";
-  var MILE_SURCHARGE = "$3 per mile";
-  // Pre-filled text when someone taps the phone number to send a message.
-  var SMS_MESSAGE = "Hi, I'd like to book a robot show";
 
   // Add-ons offered at booking; maxQty caps each one's quantity counter.
   var ADDONS = [
@@ -152,20 +149,19 @@
     overlay.innerHTML =
       '<div class="calendar-modal" role="dialog" aria-modal="true" aria-labelledby="phone-title">' +
       '  <div class="calendar-modal-header">' +
-      '    <h2 id="phone-title">Your Contact Info</h2>' +
+      '    <h2 id="phone-title">Send Your Inquiry</h2>' +
       '    <button type="button" class="calendar-close" id="phone-close" aria-label="Close">&times;</button>' +
       "  </div>" +
-      '  <p class="phone-helper">So we can reach out and confirm the details with you.</p>' +
-      '  <input type="text" id="name-input" class="phone-input" placeholder="Your name" autocomplete="name" />' +
-      '  <input type="tel" id="phone-input" class="phone-input" placeholder="(555) 123-4567" autocomplete="tel" />' +
-      '  <div class="calendar-footer">' +
-      '    <span id="phone-error" class="phone-error"></span>' +
-      '    <button type="button" class="calendar-confirm-btn" id="phone-send">Send</button>' +
-      // Phones: two buttons instead of Send, so the visitor can jump straight into email or a text message
-      '    <span class="send-split">' +
-      '      <button type="button" class="calendar-confirm-btn" id="phone-email">Email</button>' +
-      '      <button type="button" class="calendar-confirm-btn" id="phone-text">Text</button>' +
-      "    </span>" +
+      '  <p class="phone-helper" id="send-summary">How would you like to reach us?</p>' +
+      '  <div class="send-choice">' +
+      '    <button type="button" class="send-choice-btn" id="phone-email">' +
+      '      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>' +
+      '      <span>Send Email</span>' +
+      "    </button>" +
+      '    <button type="button" class="send-choice-btn" id="phone-text">' +
+      '      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.5-4.6A8 8 0 1 1 21 12Z"/></svg>' +
+      '      <span>Send Text</span>' +
+      "    </button>" +
       "  </div>" +
       "</div>";
     document.body.appendChild(overlay);
@@ -217,10 +213,7 @@
 
     var phoneOverlay = buildPhoneModal();
     var phoneClose = phoneOverlay.querySelector("#phone-close");
-    var nameInput = phoneOverlay.querySelector("#name-input");
-    var phoneInput = phoneOverlay.querySelector("#phone-input");
-    var phoneError = phoneOverlay.querySelector("#phone-error");
-    var phoneSend = phoneOverlay.querySelector("#phone-send");
+    var sendSummary = phoneOverlay.querySelector("#send-summary");
     var phoneEmail = phoneOverlay.querySelector("#phone-email");
     var phoneText = phoneOverlay.querySelector("#phone-text");
 
@@ -313,9 +306,6 @@
       renderQuantities();
       renderAddonsButton();
       renderAddonsTotal();
-      nameInput.value = "";
-      phoneInput.value = "";
-      phoneError.textContent = "";
     }
 
     function topOpenOverlay() {
@@ -369,11 +359,11 @@
 
     function openPhone() {
       phoneLastFocused = document.activeElement;
-      phoneError.textContent = "";
+      sendSummary.textContent = selectedDate
+        ? "Inquiry for " + selectedDate.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" }) + ". How would you like to reach us?"
+        : "How would you like to reach us?";
       phoneOverlay.classList.add("is-open");
       phoneOverlay.setAttribute("aria-hidden", "false");
-      // Don't focus the fields: the visitor taps one when ready (avoids the phone keyboard popping up on its own)
-      if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     }
 
     function closePhone() {
@@ -398,46 +388,32 @@
     }
 
     var lastMail = null;
-    function buildMessage(name, phone) {
-      var subject = "New Booking Inquiry" +
-        (selectedDate ? " — " + selectedDate.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "");
-
-      var lines = [];
-      lines.push("Requested date: " + (selectedDate
-        ? selectedDate.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })
-        : "Not selected"));
-      if (selectedDate) lines.push("Date price: $" + priceFor(selectedDate));
-
-      var chosenAddons = ADDONS.filter(function (a) { return selectedAddons[a.id]; });
-      if (chosenAddons.length) {
-        lines.push("");
-        lines.push("Add-ons:");
-        chosenAddons.forEach(function (a) {
-          var qty = selectedAddons[a.id];
-          lines.push("- " + a.label + " x" + qty + " ($" + a.price * qty + ")");
-        });
-        lines.push("Add-ons total: $" + addonsTotal());
-      }
-
-      var grandTotal = (selectedDate ? priceFor(selectedDate) : 0) + addonsTotal();
-      lines.push("");
-      lines.push("Estimated total: $" + grandTotal);
-      lines.push("");
-      lines.push("Customer name: " + name);
-      if (phone) lines.push("Customer phone: " + phone);
-
-      return { subject: subject, body: lines.join("\n") };
+    function ordinal(n) {
+      var v = n % 100;
+      if (v >= 11 && v <= 13) return n + "th";
+      return n + (["th", "st", "nd", "rd"][n % 10] || "th");
     }
-    function buildMailto(name, phone) {
-      lastMail = buildMessage(name, phone);
-      return "mailto:" + OWNER_EMAIL +
-        "?subject=" + encodeURIComponent(lastMail.subject) +
-        "&body=" + encodeURIComponent(lastMail.body);
+    // Robots in the booking: the main one plus any "Extra Robot" add-ons.
+    function robotCount() { return 1 + (selectedAddons["extra-robot"] || 0); }
+    // Email: only the subject is pre-filled (robot count + date); the body is left empty.
+    function buildMessage() {
+      var parts = [robotCount() + (robotCount() === 1 ? " Robot" : " Robots")];
+      ADDONS.forEach(function (a) {
+        var qty = selectedAddons[a.id] || 0;
+        if (a.id === "extra-robot" || !qty) return;   // extra robots are already in the robot count
+        parts.push(a.label + (qty > 1 ? " x" + qty : ""));
+      });
+      if (selectedDate) parts.push(MONTH_NAMES[selectedDate.getMonth()] + " " + ordinal(selectedDate.getDate()));
+      var subject = "Inquiry: " + parts.join(", ");
+      return { subject: subject, body: "" };
     }
-    // Opens the messaging app with the booking details addressed to the owner's number.
-    function buildSms(name, phone) {
-      var msg = buildMessage(name, phone);
-      return "sms:" + CONTACT_PHONE.replace(/[^\d+]/g, "") + "?&body=" + encodeURIComponent(msg.subject + "\n" + msg.body);
+    function buildMailto() {
+      lastMail = buildMessage();
+      return "mailto:" + OWNER_EMAIL + "?subject=" + encodeURIComponent(lastMail.subject);
+    }
+    // Text: opens a blank message to the owner's number; the visitor types whatever they want.
+    function buildSms() {
+      return "sms:" + CONTACT_PHONE.replace(/[^\d+]/g, "");
     }
 
     document.addEventListener("keydown", onGlobalKeydown);
@@ -507,12 +483,6 @@
     phoneOverlay.addEventListener("click", function (e) {
       if (e.target === phoneOverlay) closePhone();
     });
-    nameInput.addEventListener("keydown", function (e) {
-      if (e.key === "Enter") phoneSend.click();
-    });
-    phoneInput.addEventListener("keydown", function (e) {
-      if (e.key === "Enter") phoneSend.click();
-    });
     function finishInquiry(fallbackHtml) {
       var fb = thankYouOverlay.querySelector("#mail-fallback");
       if (fb) fb.innerHTML = fallbackHtml;
@@ -521,38 +491,15 @@
       openThankYou();
       resetBooking();
     }
-    // Text: only a name is needed, since the message itself comes from the visitor's own number.
+    // Text: opens the visitor's messaging app addressed to the owner's number.
     phoneText.addEventListener("click", function () {
-      var name = nameInput.value.trim();
-      if (!name) {
-        phoneError.textContent = "Please enter your name.";
-        nameInput.focus();
-        return;
-      }
-      window.location.href = buildSms(name, phoneInput.value.trim());
+      window.location.href = buildSms();
       finishInquiry("Text didn't open? Message us at " + CONTACT_PHONE + ".");
     });
-    phoneEmail.addEventListener("click", function () { phoneSend.click(); });
-    phoneSend.addEventListener("click", function () {
-      var name = nameInput.value.trim();
-      if (!name) {
-        phoneError.textContent = "Please enter your name.";
-        nameInput.focus();
-        return;
-      }
-      var digits = phoneInput.value.replace(/\D/g, "");
-      if (digits.length < 7) {
-        phoneError.textContent = "Please enter a valid phone number.";
-        phoneInput.focus();
-        return;
-      }
-      window.location.href = buildMailto(name, phoneInput.value.trim());
-      var fb = thankYouOverlay.querySelector("#mail-fallback");
-      if (fb && lastMail) fb.innerHTML = "Email didn't open? <a target=\"_blank\" rel=\"noopener\" href=\"https://mail.google.com/mail/?view=cm&to=" + encodeURIComponent(OWNER_EMAIL) + "&su=" + encodeURIComponent(lastMail.subject) + "&body=" + encodeURIComponent(lastMail.body) + "\">Open in Gmail</a> or write to " + OWNER_EMAIL + ".";
-      closePhone();
-      closeCalendar();
-      openThankYou();
-      resetBooking();
+    // Email: opens the visitor's mail app addressed to the owner's email.
+    phoneEmail.addEventListener("click", function () {
+      window.location.href = buildMailto();
+      finishInquiry("Email didn't open? <a target=\"_blank\" rel=\"noopener\" href=\"https://mail.google.com/mail/?view=cm&to=" + encodeURIComponent(OWNER_EMAIL) + "&su=" + encodeURIComponent(lastMail.subject) + "\">Open in Gmail</a> or write to " + OWNER_EMAIL + ".");
     });
 
     thankYouClose.addEventListener("click", closeThankYou);

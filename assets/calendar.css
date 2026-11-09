@@ -461,28 +461,45 @@
   color: #8a8a8a;
 }
 
-.phone-input {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 0.75rem 1rem;
-  margin-bottom: 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 0.75rem;
-  background: #101010;
-  color: #ececec;
-  font-size: 1.0625rem;
+/* Two large Email / Text buttons */
+.send-choice {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.send-choice-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  min-height: 9rem;
+  padding: 1.25rem 1rem;
+  border: 1.5px solid #ff5a3c;
+  border-radius: 1rem;
+  background: rgba(255, 90, 60, 0.08);
+  color: #101010;
   font-family: inherit;
+  font-size: 1.25rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
 }
 
-.phone-input:focus {
+.send-choice-btn svg { color: #ff5a3c; }
+
+.send-choice-btn:hover,
+.send-choice-btn:focus-visible {
+  background: #ff5a3c;
+  color: #ffffff;
+  transform: translateY(-2px);
   outline: none;
-  border-color: rgba(255, 255, 255, 0.5);
 }
 
-.phone-error {
-  font-size: 0.9375rem;
-  color: #f87171;
-}
+.send-choice-btn:hover svg,
+.send-choice-btn:focus-visible svg { color: #ffffff; }
 
 /* --- Thank-you modal, always on top ------------------------------------ */
 
@@ -625,23 +642,13 @@
 .addon-qty-btn:hover { background: rgba(255, 90, 60, 0.12); }
 
 .phone-helper { color: #77757a; }
-.phone-input {
-  background: #ffffff; color: #101010; border: 1px solid rgba(0, 0, 0, 0.2);
-}
-.phone-input:focus { border-color: #ff5a3c; outline: none; }
-.phone-error { color: #d92d20; }
 .thankyou-message { color: #3a3a3f; }
 .thankyou-message a { color: #ff5a3c; }
 
-/* --- Phones: date picker only, and Email / Text instead of Send ---------- */
-.send-split { display: none; }
+/* --- Phones: date picker only ------------------------------------------- */
 @media (max-width: 700px) {
   .booking-details { display: none; }              /* no "Show Details" panel on phones */
-  #phone-send { display: none; }
-  #phone-overlay .calendar-footer { flex-wrap: wrap; }
-  #phone-overlay .phone-error { flex-basis: 100%; min-height: 1.2em; }
-  .send-split { display: flex; gap: 0.75rem; flex: 1 1 100%; }
-  .send-split .calendar-confirm-btn { flex: 1; min-height: 52px; font-size: 1.1rem; }
+  .send-choice-btn { min-height: 8rem; font-size: 1.1rem; }
 }
 
 /* Phones: a slightly more compact calendar so it fits comfortably above the browser bars */

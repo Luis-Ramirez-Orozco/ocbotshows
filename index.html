@@ -148,7 +148,7 @@
      "name": "What is OC Bot Shows?",
      "acceptedAnswer": {
       "@type": "Answer",
-      "text": "OC Bot Shows provides LED robot performers for events in Orange County, California and the surrounding areas. Our illuminated robots dance, interact with guests and pose for photos."
+      "text": "OC Bot Shows provides LED robot performers for events in Orange County and the surrounding areas. Our LED robots dance, interact with guests and pose for photos."
      }
     },
     {
@@ -172,7 +172,7 @@
      "name": "How much does an LED robot show cost?",
      "acceptedAnswer": {
       "@type": "Answer",
-      "text": "Shows start at $450 Monday through Thursday and $499 Friday through Sunday. Add-ons are priced separately: CO2 cannon $100, 50 balloons $25, 25 LED noodles $25, money shooter $25 and an extra robot $300, each."
+      "text": "Shows start at $450 Monday through Thursday and $499 Friday through Sunday. Add-ons are priced separately."
      }
     },
     {
@@ -180,7 +180,7 @@
      "name": "What add-ons are available?",
      "acceptedAnswer": {
       "@type": "Answer",
-      "text": "Add-ons include a CO2 cannon, 50 balloons, 25 LED noodles, a money shooter and an extra robot. You can choose them in the booking calendar before you send your inquiry."
+      "text": "Add-ons include a CO2 cannon, balloons, LED noodles, a money shooter or an extra robot. You can choose them in the booking calendar before you send your inquiry."
      }
     },
     {
@@ -204,7 +204,7 @@
      "name": "What areas do you serve?",
      "acceptedAnswer": {
       "@type": "Answer",
-      "text": "We serve Orange County, California and the surrounding areas. Contact us to check availability for your location."
+      "text": "We serve Orange County and the surrounding areas. Contact us to check availability for your location."
      }
     },
     {
@@ -434,13 +434,21 @@
     .end .cue { bottom: 150px; }
   }
   /* FAQ popup (reuses the calendar popup look) */
-  .faq-modal { max-width: 560px; max-height: calc(100vh - 3rem); max-height: calc(100dvh - 3rem); overflow-y: auto; box-sizing: border-box; }
-  .faq-list details { border-top: 1px solid rgba(0,0,0,.1); padding: .85rem 0; }
-  .faq-list summary { cursor: pointer; font-weight: 700; font-size: 1.02rem; color: #101010; list-style: none; display: flex; justify-content: space-between; gap: 1rem; }
+  /* Fixed size: opening an answer scrolls inside the list instead of resizing the box */
+  .faq-modal { max-width: 560px; height: min(640px, calc(100vh - 3rem)); height: min(640px, calc(100dvh - 3rem)); display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; }
+  .faq-modal .calendar-modal-header { flex: none; }
+  .faq-list { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-right: .9rem; scrollbar-width: thin; scrollbar-color: #ff5a3c transparent; }
+  .faq-list::-webkit-scrollbar { width: 6px; }
+  .faq-list::-webkit-scrollbar-track { background: transparent; }
+  .faq-list::-webkit-scrollbar-thumb { background: #ff5a3c; border-radius: 3px; }
+  .faq-list details { border-top: 1px solid rgba(0,0,0,.1); padding: .35rem 0; }
+  .faq-list summary { cursor: pointer; font-weight: 700; font-size: 1.02rem; color: #101010; list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: .65rem .85rem; border-radius: .75rem; transition: background .15s, color .15s; }
   .faq-list summary::-webkit-details-marker { display: none; }
   .faq-list summary::after { content: "+"; color: #ff5a3c; font-weight: 700; font-size: 1.3rem; line-height: 1; }
-  .faq-list details[open] summary::after { content: "\2212"; }
-  .faq-list p { margin: .6rem 0 0; color: #3a3a3f; font-size: .98rem; line-height: 1.5; }
+  /* The selected question is highlighted in orange; its answer sits below, unhighlighted */
+  .faq-list details[open] summary { background: #ff5a3c; color: #fff; }
+  .faq-list details[open] summary::after { content: "\2212"; color: #fff; }
+  .faq-list p { margin: .55rem .85rem .4rem; color: #3a3a3f; font-size: .98rem; line-height: 1.5; }
   /* Readable by search engines and screen readers, not shown on the carousel itself */
   .seo { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); }
 </style>
@@ -495,14 +503,14 @@
 <div class="calendar-modal faq-modal" role="dialog" aria-modal="true" aria-labelledby="faq-title">
 <div class="calendar-modal-header"><h2 id="faq-title">Frequently Asked Questions</h2><button type="button" class="calendar-close" id="faq-close" aria-label="Close">&times;</button></div>
 <div class="faq-list">
-<details><summary>What is OC Bot Shows?</summary><p>OC Bot Shows provides LED robot performers for events in Orange County, California and the surrounding areas. Our illuminated robots dance, interact with guests and pose for photos.</p></details>
+<details><summary>What is OC Bot Shows?</summary><p>OC Bot Shows provides LED robot performers for events in Orange County and the surrounding areas. Our LED robots dance, interact with guests and pose for photos.</p></details>
 <details><summary>How long is the show?</summary><p>The show is 45 minutes in total: 30 minutes of dancing and 15 minutes of photos with your guests.</p></details>
 <details><summary>What types of events do you perform at?</summary><p>We perform at all types of events, including weddings, quinceañeras, sweet 16s, corporate events, birthdays and concerts.</p></details>
-<details><summary>How much does an LED robot show cost?</summary><p>Shows start at $450 Monday through Thursday and $499 Friday through Sunday. Add-ons are priced separately: CO2 cannon $100, 50 balloons $25, 25 LED noodles $25, money shooter $25 and an extra robot $300, each.</p></details>
-<details><summary>What add-ons are available?</summary><p>Add-ons include a CO2 cannon, 50 balloons, 25 LED noodles, a money shooter and an extra robot. You can choose them in the booking calendar before you send your inquiry.</p></details>
+<details><summary>How much does an LED robot show cost?</summary><p>Shows start at $450 Monday through Thursday and $499 Friday through Sunday. Add-ons are priced separately.</p></details>
+<details><summary>What add-ons are available?</summary><p>Add-ons include a CO2 cannon, balloons, LED noodles, a money shooter or an extra robot. You can choose them in the booking calendar before you send your inquiry.</p></details>
 <details><summary>Can I book more than one robot?</summary><p>Yes. Add an extra robot to your booking for $300.</p></details>
 <details><summary>Do the robots interact with guests?</summary><p>Yes. The robots dance and interact with your guests, and the last 15 minutes of the show are dedicated to photos.</p></details>
-<details><summary>What areas do you serve?</summary><p>We serve Orange County, California and the surrounding areas. Contact us to check availability for your location.</p></details>
+<details><summary>What areas do you serve?</summary><p>We serve Orange County and the surrounding areas. Contact us to check availability for your location.</p></details>
 <details><summary>How do I book?</summary><p>Click Inquire today, pick your date and send your request by email to ocbotshows@gmail.com or by text to 949-395-0250. Please allow up to 24 hours for a response.</p></details>
 </div>
 </div>
@@ -1011,7 +1019,10 @@ measure(); kick(); requestAnimationFrame(liveLoop);
 (function () {
   const ov = document.getElementById('faq-overlay'), openBtn = document.getElementById('faq-open'), closeBtn = document.getElementById('faq-close');
   const setOpen = on => { ov.classList.toggle('is-open', on); ov.setAttribute('aria-hidden', String(!on)); document.body.classList.toggle('modal-open', on); if (on) closeBtn.focus(); else openBtn.focus(); };
-  openBtn.addEventListener('click', () => setOpen(true));
+  // Accordion: opening one answer closes the others
+  const items = Array.from(ov.querySelectorAll('.faq-list details'));
+  items.forEach(d => d.addEventListener('toggle', () => { if (d.open) items.forEach(o => { if (o !== d) o.open = false; }); }));
+  openBtn.addEventListener('click', () => { items.forEach(d => { d.open = false; }); setOpen(true); });
   closeBtn.addEventListener('click', () => setOpen(false));
   ov.addEventListener('click', e => { if (e.target === ov) setOpen(false); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && ov.classList.contains('is-open')) setOpen(false); });

@@ -255,8 +255,11 @@
   .stage {
     position: absolute; inset: 56px 0 0 0; perspective: 2400px; perspective-origin: 50% 50%;
     overflow: hidden; cursor: grab; touch-action: pan-y;
+    /* silhouette outline so light cards never blend into the page */
+    filter: url(#card-outline);   /* black outline around solid parts only, so the soft card shadows stay soft */
   }
   .stage.dragging { cursor: grabbing; }
+  .stage.moving { filter: none; }
 
   /* Each cover is a thin 3D slab: front, back, and two edges (thickness --t).
      --eb / --ef are the edge background and text colors, set per site. */
@@ -275,12 +278,14 @@
   .cover .back { inset: 0; background: var(--eb); border-radius: var(--r); box-shadow: 0 0 0 1px rgba(16,16,16,.55); transform: rotateY(180deg) translateZ(calc(var(--t) / 2)); }
   .cover .side {
     top: var(--r); bottom: var(--r); width: calc(var(--t) + 1px);   /* +1px: overlap the faces so no hairline seam shows */ background: var(--eb); color: var(--ef);
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,.28), 0 0 0 1px rgba(16,16,16,.5);
+    box-shadow: inset 1.5px 0 0 #000, inset -1.5px 0 0 #000;   /* outline only the front and back rims */
     backface-visibility: visible;
     display: flex; align-items: center; justify-content: center;
   }
   /* Short strips that wrap each rounded corner, so the edge meets the cover all the way round */
-  .cover .corner { position: absolute; background: var(--eb); }
+  .cover .corner { position: absolute; background: var(--eb); box-shadow: inset 0 1.5px 0 #000, inset 0 -1.5px 0 #000; }
+  /* Flat top and bottom strips between the corners */
+  .cover .cap { position: absolute; background: var(--eb); box-shadow: inset 0 1.5px 0 #000, inset 0 -1.5px 0 #000; }
   .cover .side.l { left: calc((var(--t) + 1px) / -2); transform: rotateY(-90deg); }
   .cover .side.r { right: calc((var(--t) + 1px) / -2); transform: rotateY(90deg); }
   /* Title on the edge, like a book spine */
@@ -482,6 +487,7 @@
 <link rel="stylesheet" href="assets/calendar.css?v=6">
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><filter id="card-outline" x="-2%" y="-2%" width="104%" height="104%" color-interpolation-filters="sRGB"><feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 20 -18" result="solid"/><feMorphology in="solid" operator="dilate" radius="1" result="grown"/><feMerge><feMergeNode in="grown"/><feMergeNode in="SourceGraphic"/></feMerge></filter></svg>
 
 <header>
   <span class="brand">OC Bot Shows</span>
@@ -690,6 +696,38 @@ if (!matchMedia('(max-width: 700px), (orientation: landscape) and (max-height: 5
   for (let k = SITES.length - 1; k >= 0; k--) if (SITES[k].contact) SITES.splice(k, 1);
 }
 
+/* Pick which cards show: 30 total, an even mix of videos and photos, in a random order each visit.
+   Each browser remembers which cards it has already been shown, so repeat visits cycle through the
+   unused ones first and only reshuffle once every card has had a turn. */
+(function pickCards() {
+  const PER_TYPE = 15;
+  const contact = SITES.filter(s => s.contact);
+  const pool = { Video: SITES.filter(s => s.tags === 'Video'), Photo: SITES.filter(s => s.tags === 'Photo') };
+  const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  let seen = {};
+  try { seen = JSON.parse(localStorage.getItem('ocbs-seen') || '{}') || {}; } catch (e) {}
+  const picked = {};
+  Object.keys(pool).forEach(type => {
+    const all = pool[type], keyOf = s => s.title;
+    const used = new Set((seen[type] || []).filter(k => all.some(s => keyOf(s) === k)));
+    let fresh = shuffle(all.filter(s => !used.has(keyOf(s))));
+    let take = fresh.slice(0, PER_TYPE);
+    if (take.length < PER_TYPE) {                       // every card has had a turn: start a new round, avoiding the ones just taken
+      const taken = new Set(take.map(keyOf));
+      take = take.concat(shuffle(all.filter(s => !taken.has(keyOf(s)))).slice(0, PER_TYPE - take.length));
+      seen[type] = take.filter(s => !fresh.includes(s)).map(keyOf);
+    } else {
+      seen[type] = [...used, ...take.map(keyOf)];
+    }
+    picked[type] = shuffle(take);
+  });
+  try { localStorage.setItem('ocbs-seen', JSON.stringify(seen)); } catch (e) {}
+  const mixed = [];
+  for (let i = 0; i < PER_TYPE; i++) { if (picked.Video[i]) mixed.push(picked.Video[i]); if (picked.Photo[i]) mixed.push(picked.Photo[i]); }
+  SITES.length = 0;
+  SITES.push(...mixed, ...contact);                     // the phone-only Contact card stays on the end
+})();
+
 /* Tunables */
 /* Card size. Everything else (spacing, thickness, corner radius) scales with the card width. */
 const ASPECT = 9 / 16;        // card shape, width / height: 0.8 = 4:5 portrait, 1 = square, 9/16 = phone video, 16/9 = landscape video
@@ -785,7 +823,8 @@ const covers = SITES.map((s, i) => {
   const side = cls => { const d = document.createElement('div'); d.className = 'side ' + cls; return d; };
   el._corners = [];
   for (let k = 0; k < 4 * CORNER_STEPS; k++) { const c = document.createElement('div'); c.className = 'corner'; el._corners.push(c); }
-  el.append(front, back, side('l'), side('r'), ...el._corners);
+  el._caps = [0, 1].map(() => { const c = document.createElement('div'); c.className = 'cap'; return c; });
+  el.append(front, back, side('l'), side('r'), ...el._corners, ...el._caps);
   el._front = front; el._shade = shade;
 
   world.appendChild(el);
@@ -820,6 +859,11 @@ function measure() {
 
     // Lay out the corner-wrapping segments along each quarter circle
     const r = W * RADIUS, t = W * THICKNESS;
+    el._caps.forEach((c, k) => {
+      const q = c.style;
+      q.left = r - 0.5 + 'px'; q.width = W - 2 * r + 1 + 'px'; q.height = t + 1 + 'px';
+      q.top = (k ? H : 0) - (t + 1) / 2 + 'px'; q.transform = 'rotateX(90deg)';
+    });
     [[r, r, 180], [W - r, r, 270], [W - r, H - r, 0], [r, H - r, 90]].forEach(([cx, cy, a0], c) => {
       for (let k = 0; k < CORNER_STEPS; k++) {
         const a = (a0 + 90 * k / CORNER_STEPS) * Math.PI / 180, b = (a0 + 90 * (k + 1) / CORNER_STEPS) * Math.PI / 180;
@@ -882,8 +926,11 @@ function layout(p) {
 
     const isOpen = i === openIdx && openT > 0.001;
     // Perf: far cards are small and edge-on, so skip their 20 rounded-corner strips (fewer 3D layers to composite while scrolling)
-    const cornersOn = ad <= 4 || i === openIdx;
-    if (el._cornersOn !== cornersOn) { el._cornersOn = cornersOn; el._corners.forEach(c => { c.style.display = cornersOn ? '' : 'none'; }); }
+    // Perf: near cards get all 5 segments per rounded corner; farther (smaller, edge-on) cards get 3 of 5, which still reads as rounded
+    const cornerLevel = ad <= 4 || i === openIdx ? 2 : 1;
+    if (el._cornerLevel !== cornerLevel) { el._cornerLevel = cornerLevel; el._corners.forEach((c, n) => { c.style.display = cornerLevel === 2 || (n % CORNER_STEPS) % 2 === 0 ? '' : 'none'; }); }
+    const capsOn = ad <= 0.75 || i === openIdx;   // caps only on the card at center: on neighbours they would poke through the front of the card beside them
+    if (el._capsOn !== capsOn) { el._capsOn = capsOn; el._caps.forEach(c => { c.style.display = capsOn ? '' : 'none'; }); }
     const near = Math.min(ad, 1), gap = near * near * (3 - 2 * near);   // smoothstep: the gap opens as a card nears center
     let x = d * W * pitch + Math.sign(d) * gap * W * (ph ? PHONE_CENTER_GAP : CENTER_GAP);
     let rot = (d < 0 ? 1 : -1) * angleAt(ad);        // left cards lean one way, right cards the other
@@ -925,6 +972,7 @@ function setBar(i) {
 /* Movement loop: eases `pos` toward `target`, only runs while moving */
 function frame(now) {
   raf = 0;
+  stage.classList.add('moving');   // outline filter is too heavy to redraw every frame: it's off while cards glide and back on once they settle
   const dt = Math.min(now - (lastT || now - 16), 48);
   lastT = now;
   pos += (target - pos) * (1 - Math.exp(-EASE * dt * 2.4));
@@ -938,7 +986,7 @@ function frame(now) {
   layout(pos);
   const i = clamp(Math.round(pos), 0, last);
   if (i !== index) { index = i; setBar(i); }
-  if (pos !== target || openT !== openGoal || openIdx !== wantOpen) raf = requestAnimationFrame(frame); else lastT = 0;
+  if (pos !== target || openT !== openGoal || openIdx !== wantOpen) raf = requestAnimationFrame(frame); else { lastT = 0; stage.classList.remove('moving'); }
 }
 function kick() { if (!raf) raf = requestAnimationFrame(frame); }
 function setTarget(v) { target = clamp(v, lo, hi); kick(); }

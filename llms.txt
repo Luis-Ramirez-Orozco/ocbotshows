@@ -1,6 +1,6 @@
 # OC Bot Shows
 
-> LED robot performers for events in Orange County, California and the surrounding areas. The illuminated robots dance, interact with guests and pose for photos.
+> LED robots, LED robot shows and LED performers for events in Orange County, California and the surrounding areas. The illuminated robots dance, interact with guests and pose for photos.
 
 ## Services
 - 45-minute LED robot show: 30 minutes of dancing and 15 minutes of photos
